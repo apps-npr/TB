@@ -3,59 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TB Clinic Smart Workspace</title>
+    <title>TB Pharmacist Workspace</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
         <aside class="sidebar">
-            <h2>คิวผู้ป่วยวันนี้</h2>
-            <div class="queue-input">
-                <input type="text" id="tb-input" placeholder="TB No. (เช่น 01/68)">
-                <button onclick="addToQueue()">+ เตรียมข้อมูล</button>
+            <div class="sidebar-header">
+                <h2><i class="fas fa-lungs-virus"></i> TB Clinic คิววันนี้</h2>
             </div>
-            <ul id="queue-list" class="queue-list">
-                </ul>
+            <div class="queue-input">
+                <textarea id="batch-input" placeholder="วางรายการ HN จากระบบ HIS ที่นี่ (คั่นด้วย Enter หรือเว้นวรรค)"></textarea>
+                <button class="btn-primary" onclick="importBatch()"><i class="fas fa-file-import"></i> นำเข้าคิว (Batch)</button>
+                <div class="divider">หรือ</div>
+                <input type="text" id="single-input" placeholder="พิมพ์ TB No. หรือ HN">
+                <button class="btn-secondary" onclick="addSingleQueue()"><i class="fas fa-search"></i> ค้นหา</button>
+            </div>
+            <ul id="queue-list" class="queue-list"></ul>
         </aside>
 
         <main class="main-content">
             <div id="welcome-screen" class="welcome-screen">
-                <h2>กรุณาเลือกผู้ป่วยจากคิว เพื่อเริ่มปฏิบัติงาน</h2>
+                <i class="fas fa-prescription-bottle-alt fa-4x"></i>
+                <h2>TB Pharmacist Clinical Workspace</h2>
+                <p>เลือกผู้ป่วยจากคิว เพื่อเริ่มบริบาลทางเภสัชกรรม</p>
             </div>
 
             <div id="patient-workspace" class="workspace" style="display: none;">
                 <div class="patient-header">
-                    <h2 id="p-name">ชื่อผู้ป่วย</h2>
-                    <p>TB No: <span id="p-tbno"></span> | HN: <span id="p-hn"></span></p>
-                </div>
-
-                <div class="calculator-section">
-                    <h3>Smart Dosing & Renal Adjustment</h3>
-                    <div class="input-grid">
-                        <div><label>อายุ:</label> <input type="number" id="p-age" readonly></div>
-                        <div><label>เพศ:</label> <input type="text" id="p-gender" readonly></div>
-                        <div><label>น้ำหนัก (kg):</label> <input type="number" id="p-weight" oninput="calculate()"></div>
-                        <div><label>Serum Cr:</label> <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()"></div>
+                    <div>
+                        <h2 id="p-name">-</h2>
+                        <p class="p-meta">TB No: <span id="p-tbno"></span> | HN: <span id="p-hn"></span> | อายุ: <span id="p-age"></span> ปี</p>
                     </div>
-                    
-                    <div class="result-box">
-                        <p><strong>CrCl (Cockcroft-Gault):</strong> <span id="res-crcl" class="highlight">-</span> ml/min</p>
-                        <hr>
-                        <h4>สูตรยามาตรฐาน 2IRZE/4IR ที่แนะนำ:</h4>
-                        <div id="res-regimen" class="regimen-output"></div>
+                    <div class="roadmap-mini">
+                        <span>Phase: </span>
+                        <div class="phase-badge intensive">Intensive (M1-M2)</div>
+                        <div class="phase-badge continuation pending">Continuation (M3-M6)</div>
                     </div>
                 </div>
 
-                <div class="alert-section">
-                    <h3>Smart Checklist & Alerts</h3>
-                    <label><input type="checkbox" id="chk-va"> ตรวจตา (VA / Color blind) แล้ว</label><br>
-                    <label><input type="checkbox" id="chk-lft"> เจาะ LFT (AST/ALT) ตามเกณฑ์แล้ว</label><br>
-                    <label><input type="checkbox" id="chk-afb"> เก็บเสมหะ AFBx2 ตามเกณฑ์แล้ว</label>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('tab-dosing')">สูตรยา & ขนาดยา</button>
+                    <button class="tab-btn" onclick="switchTab('tab-labs')">Lab & Micro</button>
+                    <button class="tab-btn" onclick="switchTab('tab-adr')">ADR & Rechallenge</button>
+                    <button class="tab-btn" onclick="switchTab('tab-history')">ประวัติย้อนหลัง</button>
+                </div>
+
+                <div class="tab-content">
+                    <div id="tab-dosing" class="tab-pane active">
+                        <div class="dosing-grid">
+                            <div class="input-card">
+                                <h3>ข้อมูลน้ำหนัก & ไต</h3>
+                                <label>น้ำหนักปัจจุบัน (kg): <span id="weight-val" class="text-highlight">50</span></label>
+                                <input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()">
+                                
+                                <label>Serum Cr (mg/dL):</label>
+                                <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()">
+                                <p class="crcl-display">CrCl: <span id="res-crcl">-</span> ml/min</p>
+                            </div>
+                            
+                            <div class="regimen-card">
+                                <h3>เลือกสูตรยา (Regimen)</h3>
+                                <select id="regimen-select" onchange="calculate()">
+                                    <optgroup label="วัณโรคปอด (DS-TB)">
+                                        <option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option>
+                                        <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
+                                    </optgroup>
+                                    <optgroup label="วัณโรคระยะแฝง (TPT - LTBI)">
+                                        <option value="1HP">1HP (Daily INH + RPT 1 month)</option>
+                                        <option value="3HP">3HP (Weekly INH + RPT 3 months)</option>
+                                    </optgroup>
+                                    <optgroup label="วัณโรคดื้อยา (DR-TB)">
+                                        <option value="BPaLM">BPaLM (MDR/RR-TB ระยะสั้น 6 เดือน)</option>
+                                    </optgroup>
+                                </select>
+                                <div id="res-regimen" class="regimen-output"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-labs" class="tab-pane">
+                        <div class="lab-grid">
+                            <div>
+                                <h3>Liver Function Test</h3>
+                                <label>AST (U/L): <input type="number" id="lab-ast" oninput="checkHepatotoxicity()"></label>
+                                <label>ALT (U/L): <input type="number" id="lab-alt" oninput="checkHepatotoxicity()"></label>
+                                <label>TB/DB: <input type="text" placeholder="เช่น 1.2/0.4"></label>
+                                <div id="liver-alert" class="alert-box hidden"></div>
+                            </div>
+                            <div>
+                                <h3>Microbiology</h3>
+                                <label>Sputum AFB:</label>
+                                <select><option>Not done</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select>
+                                <label>Xpert MTB/RIF:</label>
+                                <select><option>Not done</option><option>MTB Detected, RIF Sensitive</option><option>MTB Detected, RIF Resistant</option></select>
+                                <label>Line Probe Assay (LPA):</label>
+                                <input type="text" placeholder="ระบุผล LPA First/Second line">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-adr" class="tab-pane">
+                        <div class="rechallenge-guide">
+                            <h3><i class="fas fa-exclamation-triangle"></i> DILI & Drug Rechallenge Guide</h3>
+                            <p><strong>เกณฑ์หยุดยา (Stop Rule):</strong> ALT > 3 เท่าของค่าปกติ (ULN) <u>พร้อมมีอาการ</u> หรือ ALT > 5 เท่าของ ULN <u>โดยไม่มีอาการ</u> (อ้างอิง: แนวทางฯ พ.ศ. 2564)</p>
+                            <hr>
+                            <h4>Step การ Rechallenge (เริ่มเมื่อ ALT < 2x ULN และ Bilirubin ปกติ)</h4>
+                            <ol class="timeline-list">
+                                <li><strong>Day 1-3:</strong> เริ่ม <b>Ethambutol (E)</b> ขนาดเต็มที่ + สังเกตอาการ</li>
+                                <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่ (ระวัง transient hyperbilirubinemia)</li>
+                                <li><strong>Day 7-9:</strong> เพิ่ม <b>Isoniazid (H)</b> ขนาดเต็มที่</li>
+                                <li><strong>หมายเหตุ:</strong> มักไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้พิจารณาสูตร 9HRE แทน</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div id="tab-history" class="tab-pane">
+                        <table class="history-table">
+                            <thead>
+                                <tr><th>วันที่</th><th>น้ำหนัก (kg)</th><th>CrCl</th><th>สูตรยา</th><th>Labs</th></tr>
+                            </thead>
+                            <tbody id="history-body"></tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="actions">
-                    <button class="btn-save" onclick="saveData()">บันทึกผลการจ่ายยา</button>
-                    <button class="btn-cancel" onclick="closeWorkspace()">ย้อนกลับ / ปิด</button>
+                    <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> บันทึกข้อมูล Visit</button>
+                    <button class="btn-cancel" onclick="closeWorkspace()">ย้อนกลับ</button>
                 </div>
             </div>
         </main>
