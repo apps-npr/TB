@@ -31,11 +31,18 @@
             </div>
 
             <div id="patient-workspace" class="workspace" style="display: none;">
+                
                 <div class="patient-header">
                     <div>
                         <h2 id="p-name">-</h2>
                         <p class="p-meta">TB No: <span id="p-tbno"></span> | HN: <span id="p-hn"></span> | อายุ: <span id="p-age"></span> ปี</p>
                     </div>
+                    
+                    <div class="date-input-group">
+                        <label><i class="fas fa-calendar-alt"></i> วันที่เริ่มยา (Start Date):</label>
+                        <input type="date" id="p-start-date" onchange="renderRoadmap()">
+                    </div>
+
                     <div class="roadmap-mini">
                         <span>Phase: </span>
                         <div class="phase-badge intensive">Intensive (M1-M2)</div>
@@ -47,7 +54,7 @@
                     <button class="tab-btn active" onclick="switchTab('tab-dosing')">สูตรยา & ขนาดยา</button>
                     <button class="tab-btn" onclick="switchTab('tab-labs')">Lab & Micro</button>
                     <button class="tab-btn" onclick="switchTab('tab-adr')">ADR & Rechallenge</button>
-                    <button class="tab-btn" onclick="switchTab('tab-history')">ประวัติย้อนหลัง</button>
+                    <button class="tab-btn" onclick="switchTab('tab-history')">Timeline & Roadmap</button>
                 </div>
 
                 <div class="tab-content">
@@ -120,12 +127,22 @@
                     </div>
 
                     <div id="tab-history" class="tab-pane">
-                        <table class="history-table">
-                            <thead>
-                                <tr><th>วันที่</th><th>น้ำหนัก (kg)</th><th>CrCl</th><th>สูตรยา</th><th>Labs</th></tr>
-                            </thead>
-                            <tbody id="history-body"></tbody>
-                        </table>
+                        
+                        <div class="gantt-wrapper">
+                            <h3><i class="fas fa-tasks"></i> Treatment Timeline (Gantt Chart)</h3>
+                            <div class="gantt-info">ระยะเวลาการรักษา: <span id="gantt-duration">0</span> เดือน</div>
+                            <div class="gantt-track">
+                                <div id="gantt-progress" class="gantt-progress"></div>
+                            </div>
+                            <div class="gantt-labels">
+                                <span>เริ่มยา</span><span>M2 (Intensive)</span><span>M4</span><span>M6 (Complete)</span>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-top: 30px;"><i class="fas fa-clipboard-list"></i> Visit Roadmap Board</h3>
+                        <div id="roadmap-board" class="roadmap-board">
+                            </div>
+                        
                     </div>
                 </div>
 
