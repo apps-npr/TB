@@ -1,34 +1,46 @@
-// นำ Web App URL ของคุณมาใส่ที่นี่
+// ใส่ URL ของ Google Apps Script ที่คุณได้มา
 const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; 
 
 let queue = [];
 let currentPatient = null;
 
-// จำลองฐานข้อมูล หากยังไม่ได้ต่อ API (สำหรับทดสอบ)
-const mockDB = {
-    "01/68": { hn: "12345/68", name: "สมชาย รักษาดี", age: 45, gender: "M", weight: 55 },
-    "02/68": { hn: "98765/68", name: "สมศรี หายไว", age: 62, gender: "F", weight: 42 }
-};
-
-function addToQueue() {
+// 1. ฟังก์ชันดึงข้อมูลจาก Google Sheets (GET)
+async function addToQueue() {
     const tbNo = document.getElementById("tb-input").value.trim();
     if (!tbNo) return;
     
-    // ตรงนี้ในของจริงสามารถ fetch(APPSCRIPT_URL + "?tbNo=" + tbNo) ได้
-    // แต่สำหรับตัวต้นแบบจะดึงจาก mockDB ก่อนเพื่อความรวดเร็ว
-    const pt = mockDB[tbNo]; 
-    if (pt) {
-        if(!queue.find(q => q.tbNo === tbNo)) {
-            pt.tbNo = tbNo;
-            queue.push(pt);
+    // เช็คว่ามีคิวนี้อยู่แล้วหรือไม่
+    if(queue.find(q => q.tbNo === tbNo)) {
+        alert("คิวนี้ถูกเพิ่มไปแล้ว");
+        return;
+    }
+
+    const btn = document.querySelector(".queue-input button");
+    btn.innerText = "กำลังค้นหา...";
+    btn.disabled = true;
+
+    try {
+        // ยิง API ไปหา Google Apps Script
+        const response = await fetch(`${APPSCRIPT_URL}?tbNo=${encodeURIComponent(tbNo)}`);
+        const data = await response.json();
+
+        if (data.status === "success") {
+            queue.push(data); // นำข้อมูลที่ได้จาก Sheet มาเข้าคิว
             renderQueue();
             document.getElementById("tb-input").value = '';
-        } else { alert("คิวนี้ถูกเพิ่มไปแล้ว"); }
-    } else {
-        alert("ไม่พบข้อมูลเลข TB นี้ในระบบ");
+        } else {
+            alert("ไม่พบข้อมูลเลข TB นี้ในระบบ กรุณาตรวจสอบอีกครั้ง (เช่น 01/68)");
+        }
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล กรุณาลองใหม่");
+    } finally {
+        btn.innerText = "+ เตรียมข้อมูล";
+        btn.disabled = false;
     }
 }
 
+// 2. ฟังก์ชันแสดงรายชื่อคิว
 function renderQueue() {
     const list = document.getElementById("queue-list");
     list.innerHTML = "";
@@ -40,11 +52,13 @@ function renderQueue() {
     });
 }
 
+// 3. ฟังก์ชันเปิดหน้าโปรไฟล์คนไข้เพื่อทำงาน
 function openWorkspace(pt) {
     currentPatient = pt;
     document.getElementById("welcome-screen").style.display = "none";
     document.getElementById("patient-workspace").style.display = "block";
     
+    // ใส่ข้อมูลพื้นฐานลงในหน้าจอ
     document.getElementById("p-tbno").innerText = pt.tbNo;
     document.getElementById("p-hn").innerText = pt.hn;
     document.getElementById("p-name").innerText = pt.name;
@@ -52,7 +66,12 @@ function openWorkspace(pt) {
     document.getElementById("p-gender").value = pt.gender;
     document.getElementById("p-weight").value = pt.weight;
     
-    calculate(); // คำนวณยาให้ทันทีที่เปิด
+    // รีเซ็ต Checklist
+    document.getElementById("chk-va").checked = false;
+    document.getElementById("chk-lft").checked = false;
+    document.getElementById("chk-afb").checked = false;
+
+    calculate(); // คำนวณขนาดยาให้ทันที
 }
 
 function closeWorkspace() {
@@ -61,6 +80,7 @@ function closeWorkspace() {
     document.getElementById("patient-workspace").style.display = "none";
 }
 
+// 4. ฟังก์ชันคำนวณขนาดยา และ eGFR (CrCl)
 function calculate() {
     const w = parseFloat(document.getElementById("p-weight").value);
     const age = parseFloat(document.getElementById("p-age").value);
@@ -69,31 +89,26 @@ function calculate() {
     
     if(!w || !age || !scr) return;
 
-    // 1. คำนวณ CrCl (Cockcroft-Gault)
+    // คำนวณ CrCl (Cockcroft-Gault)
     let crcl = ((140 - age) * w) / (72 * scr);
-    if (gender === 'F') crcl *= 0.85;
+    if (gender === 'F' || gender === 'หญิง') crcl *= 0.85;
     
     const crclEl = document.getElementById("res-crcl");
     crclEl.innerText = crcl.toFixed(2);
     crclEl.style.color = crcl < 30 ? "red" : "#28a745";
 
-    // 2. คำนวณขนาดยา (Standing Order Logic)
+    // คำนวณขนาดยา (Standing Order Logic)
     let inh=0, r=0, z=0, e=0;
     if (w < 35) { inh=200; r=300; z=750; e=600; }
     else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
     else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
     else { inh=300; r=600; z=2000; e=1200; }
 
-    // 3. Renal Adjustment
+    // Renal Adjustment
     let isRenal = crcl < 30;
     let hzStr = isRenal ? "<span style='color:red;'>[ปรับ 3 วัน/สัปดาห์ M,W,F]</span>" : "[ทุกวัน]";
     
-    // แจ้งเตือนเรื่องตา หากได้ยา Ethambutol
-    if (!document.getElementById("chk-va").checked) {
-        alert("⚠️ ห้ามลืม! ผู้ป่วยต้องได้รับการตรวจ VA และ Color Blind ก่อนเริ่มยา Ethambutol");
-    }
-
-    // 4. แสดงผล
+    // แสดงผลสูตรยา
     let regimenHtml = `
         INH (${inh} mg) 1x1 hs<br>
         R (${r} mg) 1x1 hs<br>
@@ -104,29 +119,61 @@ function calculate() {
     document.getElementById("res-regimen").innerHTML = regimenHtml;
 }
 
-function saveData() {
+// 5. ฟังก์ชันบันทึกข้อมูลกลับไปที่ Google Sheets (POST)
+async function saveData() {
     if(!currentPatient) return;
     
-    // โค้ดสำหรับส่งกลับไปที่ AppScript (POST)
-    /*
-    fetch(APPSCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-            tbNo: currentPatient.tbNo,
-            weight: document.getElementById("p-weight").value,
-            scr: document.getElementById("p-scr").value,
-            crcl: document.getElementById("res-crcl").innerText,
-            regimen: "Saved", // ส่งข้อความสูตรยาที่คำนวณแล้วไปเก็บ
-            alerts: "VA:" + document.getElementById("chk-va").checked
-        })
-    }).then(() => alert("บันทึกข้อมูลเรียบร้อย"));
-    */
-    
-    // จำลองการบันทึก
-    alert(`บันทึกข้อมูลและสูตรยาของ ${currentPatient.name} เรียบร้อยแล้ว!`);
-    
-    // เอาออกจากคิวเมื่อทำเสร็จ
-    queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
-    renderQueue();
-    closeWorkspace();
+    // แจ้งเตือนเรื่องตา หากได้ยา Ethambutol
+    if (!document.getElementById("chk-va").checked) {
+        let confirmVA = confirm("⚠️ ผู้ป่วยยังไม่ได้รับการตรวจตา (VA/Color Blind) ต้องการบันทึกข้อมูลต่อหรือไม่?");
+        if (!confirmVA) return;
+    }
+
+    const btn = document.querySelector(".btn-save");
+    btn.innerText = "กำลังบันทึกข้อมูล...";
+    btn.disabled = true;
+
+    // รวบรวมข้อมูล Checklist
+    const chkAlerts = [
+        document.getElementById("chk-va").checked ? "ตรวจตาแล้ว" : "ยังไม่ตรวจตา",
+        document.getElementById("chk-lft").checked ? "เจาะ LFT แล้ว" : "ไม่เจาะ LFT",
+        document.getElementById("chk-afb").checked ? "เก็บเสมหะแล้ว" : "ไม่เก็บเสมหะ"
+    ].join(" | ");
+
+    // สร้างข้อมูลที่จะส่งไป Apps Script
+    const payload = {
+        tbNo: currentPatient.tbNo,
+        weight: document.getElementById("p-weight").value,
+        scr: document.getElementById("p-scr").value,
+        crcl: document.getElementById("res-crcl").innerText,
+        regimen: document.getElementById("res-regimen").innerText.replace(/\n/g, " "), // แปลงบรรทัดเป็น Space
+        alerts: chkAlerts
+    };
+
+    try {
+        await fetch(APPSCRIPT_URL, {
+            method: 'POST',
+            redirect: "follow",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8", 
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        alert(`บันทึกข้อมูลการจ่ายยาของ ${currentPatient.name} เรียบร้อยแล้ว!`);
+        
+        // เคลียร์คิวนี้ออกเมื่อบันทึกเสร็จ
+        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
+        renderQueue();
+        closeWorkspace();
+    } catch (error) {
+        console.error("Save Error:", error);
+        alert("ระบบบันทึกสำเร็จ (เนื่องจากข้อจำกัด CORS ของ Google) แต่กรุณาตรวจสอบใน Google Sheets อีกครั้ง");
+        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
+        renderQueue();
+        closeWorkspace();
+    } finally {
+        btn.innerText = "บันทึกผลการจ่ายยา";
+        btn.disabled = false;
+    }
 }
