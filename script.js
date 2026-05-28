@@ -1,179 +1,202 @@
-// ใส่ URL ของ Google Apps Script ที่คุณได้มา
-const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; 
+const APPSCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; // ใส่ URL ใหม่ของคุณ
 
 let queue = [];
 let currentPatient = null;
 
-// 1. ฟังก์ชันดึงข้อมูลจาก Google Sheets (GET)
-async function addToQueue() {
-    const tbNo = document.getElementById("tb-input").value.trim();
-    if (!tbNo) return;
+// --- ระบบนำเข้าคิว ---
+async function importBatch() {
+    const input = document.getElementById("batch-input").value;
+    if(!input) return;
     
-    // เช็คว่ามีคิวนี้อยู่แล้วหรือไม่
-    if(queue.find(q => q.tbNo === tbNo)) {
-        alert("คิวนี้ถูกเพิ่มไปแล้ว");
-        return;
-    }
-
-    const btn = document.querySelector(".queue-input button");
-    btn.innerText = "กำลังค้นหา...";
+    // แยก HN ด้วยการเว้นวรรค, ขึ้นบรรทัดใหม่, หรือลูกน้ำ
+    const hns = input.split(/[\n\s,]+/).filter(Boolean).join(",");
+    const btn = document.querySelector(".btn-primary");
+    btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> กำลังโหลด...";
     btn.disabled = true;
 
     try {
-        // ยิง API ไปหา Google Apps Script
-        const response = await fetch(`${APPSCRIPT_URL}?tbNo=${encodeURIComponent(tbNo)}`);
-        const data = await response.json();
-
-        if (data.status === "success") {
-            queue.push(data); // นำข้อมูลที่ได้จาก Sheet มาเข้าคิว
+        const response = await fetch(`${APPSCRIPT_URL}?batch=true&query=${encodeURIComponent(hns)}`);
+        const result = await response.json();
+        
+        if(result.status === "success") {
+            result.data.forEach(pt => {
+                if(!queue.find(q => q.hn === pt.hn)) queue.push(pt);
+            });
             renderQueue();
-            document.getElementById("tb-input").value = '';
-        } else {
-            alert("ไม่พบข้อมูลเลข TB นี้ในระบบ กรุณาตรวจสอบอีกครั้ง (เช่น 01/68)");
+            document.getElementById("batch-input").value = "";
         }
-    } catch (error) {
-        console.error("Fetch Error:", error);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล กรุณาลองใหม่");
-    } finally {
-        btn.innerText = "+ เตรียมข้อมูล";
-        btn.disabled = false;
-    }
+    } catch(err) { console.error(err); alert("ดึงข้อมูลล้มเหลว"); }
+    
+    btn.innerHTML = "<i class='fas fa-file-import'></i> นำเข้าคิว (Batch)";
+    btn.disabled = false;
 }
 
-// 2. ฟังก์ชันแสดงรายชื่อคิว
+async function addSingleQueue() {
+    const query = document.getElementById("single-input").value.trim();
+    if(!query) return;
+    
+    try {
+        const response = await fetch(`${APPSCRIPT_URL}?batch=false&query=${encodeURIComponent(query)}`);
+        const result = await response.json();
+        
+        if(result.status === "success") {
+            const pt = result.data[0];
+            pt.history = result.history; // เก็บประวัติไว้ใน object
+            if(!queue.find(q => q.hn === pt.hn)) {
+                queue.push(pt);
+                renderQueue();
+                document.getElementById("single-input").value = "";
+            } else { alert("คนไข้อยู่ในคิวแล้ว"); }
+        } else { alert("ไม่พบข้อมูล"); }
+    } catch(err) { console.error(err); }
+}
+
 function renderQueue() {
     const list = document.getElementById("queue-list");
     list.innerHTML = "";
     queue.forEach(pt => {
         const li = document.createElement("li");
-        li.innerHTML = `<strong>${pt.tbNo}</strong> - ${pt.name}`;
+        li.innerHTML = `<strong>${pt.tbNo}</strong><br><small>HN: ${pt.hn}</small> - ${pt.name}`;
         li.onclick = () => openWorkspace(pt);
         list.appendChild(li);
     });
 }
 
-// 3. ฟังก์ชันเปิดหน้าโปรไฟล์คนไข้เพื่อทำงาน
+// --- ระบบ UI & Tabs ---
 function openWorkspace(pt) {
     currentPatient = pt;
     document.getElementById("welcome-screen").style.display = "none";
     document.getElementById("patient-workspace").style.display = "block";
     
-    // ใส่ข้อมูลพื้นฐานลงในหน้าจอ
+    document.getElementById("p-name").innerText = pt.name;
     document.getElementById("p-tbno").innerText = pt.tbNo;
     document.getElementById("p-hn").innerText = pt.hn;
-    document.getElementById("p-name").innerText = pt.name;
-    document.getElementById("p-age").value = pt.age;
-    document.getElementById("p-gender").value = pt.gender;
-    document.getElementById("p-weight").value = pt.weight;
+    document.getElementById("p-age").innerText = pt.age;
     
-    // รีเซ็ต Checklist
-    document.getElementById("chk-va").checked = false;
-    document.getElementById("chk-lft").checked = false;
-    document.getElementById("chk-afb").checked = false;
+    // Set Slider & Gender
+    document.getElementById("p-weight").value = pt.weight;
+    updateWeightSlider(); // กระตุ้นการเปลี่ยนตัวเลขและคำนวณ
 
-    calculate(); // คำนวณขนาดยาให้ทันที
+    // Render History Table
+    const tBody = document.getElementById("history-body");
+    tBody.innerHTML = "";
+    if(pt.history && pt.history.length > 0) {
+        pt.history.forEach(h => {
+            tBody.innerHTML += `<tr>
+                <td>${new Date(h.date).toLocaleDateString('th-TH')}</td>
+                <td>${h.weight}</td>
+                <td>${h.crcl}</td>
+                <td>${h.regimen}</td>
+                <td>${h.labs}</td>
+            </tr>`;
+        });
+    } else {
+        tBody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>ยังไม่มีประวัติการรับยา</td></tr>";
+    }
+
+    switchTab('tab-dosing'); // Default tab
 }
 
 function closeWorkspace() {
-    currentPatient = null;
-    document.getElementById("welcome-screen").style.display = "flex";
     document.getElementById("patient-workspace").style.display = "none";
+    document.getElementById("welcome-screen").style.display = "flex";
 }
 
-// 4. ฟังก์ชันคำนวณขนาดยา และ eGFR (CrCl)
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+// --- Clinical Logic (อ้างอิง Guideline ประเทศไทย) ---
+function updateWeightSlider() {
+    const w = document.getElementById("p-weight").value;
+    document.getElementById("weight-val").innerText = w;
+    calculate();
+}
+
 function calculate() {
     const w = parseFloat(document.getElementById("p-weight").value);
-    const age = parseFloat(document.getElementById("p-age").value);
-    const gender = document.getElementById("p-gender").value;
-    const scr = parseFloat(document.getElementById("p-scr").value);
+    const age = parseFloat(document.getElementById("p-age").innerText);
+    const gender = currentPatient.gender; // "M" หรือ "F"
+    const scr = parseFloat(document.getElementById("p-scr").value) || 1.0;
+    const regimen = document.getElementById("regimen-select").value;
     
-    if(!w || !age || !scr) return;
-
-    // คำนวณ CrCl (Cockcroft-Gault)
+    // 1. Calculate CrCl
     let crcl = ((140 - age) * w) / (72 * scr);
     if (gender === 'F' || gender === 'หญิง') crcl *= 0.85;
     
     const crclEl = document.getElementById("res-crcl");
-    crclEl.innerText = crcl.toFixed(2);
-    crclEl.style.color = crcl < 30 ? "red" : "#28a745";
-
-    // คำนวณขนาดยา (Standing Order Logic)
-    let inh=0, r=0, z=0, e=0;
-    if (w < 35) { inh=200; r=300; z=750; e=600; }
-    else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
-    else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
-    else { inh=300; r=600; z=2000; e=1200; }
-
-    // Renal Adjustment
+    crclEl.innerText = crcl.toFixed(1);
+    crclEl.style.color = crcl < 30 ? "red" : "var(--success)";
     let isRenal = crcl < 30;
-    let hzStr = isRenal ? "<span style='color:red;'>[ปรับ 3 วัน/สัปดาห์ M,W,F]</span>" : "[ทุกวัน]";
-    
-    // แสดงผลสูตรยา
-    let regimenHtml = `
-        INH (${inh} mg) 1x1 hs<br>
-        R (${r} mg) 1x1 hs<br>
-        Z (${z} mg) ${hzStr}<br>
-        E (${e} mg) ${hzStr}<br>
-        Vitamin B6 (50 mg) 1x1 hs <span style='color:blue;'>*Auto Default</span>
-    `;
-    document.getElementById("res-regimen").innerHTML = regimenHtml;
-}
 
-// 5. ฟังก์ชันบันทึกข้อมูลกลับไปที่ Google Sheets (POST)
-async function saveData() {
-    if(!currentPatient) return;
+    // 2. Recommend Dosage based on Guideline 2564/2566
+    let outputHtml = "";
     
-    // แจ้งเตือนเรื่องตา หากได้ยา Ethambutol
-    if (!document.getElementById("chk-va").checked) {
-        let confirmVA = confirm("⚠️ ผู้ป่วยยังไม่ได้รับการตรวจตา (VA/Color Blind) ต้องการบันทึกข้อมูลต่อหรือไม่?");
-        if (!confirmVA) return;
+    if (regimen === "HRZE") {
+        let inh=0, r=0, z=0, e=0;
+        if (w < 35) { inh=200; r=300; z=750; e=600; }
+        else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
+        else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
+        else { inh=300; r=600; z=2000; e=1200; }
+        
+        let hzStr = isRenal ? "<span style='color:red;'>[ปรับ 3 วัน/สัปดาห์ M,W,F]</span>" : "[ทุกวัน]";
+        outputHtml = `
+            <strong>สูตร: 2HRZE / 4HR (น้ำหนัก ${w} kg)</strong><br><br>
+            - Isoniazid (H): ${inh} mg 1x1 hs<br>
+            - Rifampicin (R): ${r} mg 1x1 hs<br>
+            - Pyrazinamide (Z): ${z} mg ${hzStr}<br>
+            - Ethambutol (E): ${e} mg ${hzStr}<br><br>
+            <span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>
+        `;
+    } 
+    else if (regimen === "1HP") { // Guideline TPT 2566/2568
+        let rpt = w < 35 ? 300 : (w <= 45 ? 450 : 600);
+        outputHtml = `
+            <strong>สูตร: 1HP (TPT / LTBI)</strong><br><br>
+            - Isoniazid (H): 300 mg 1x1 (ทุกวัน)<br>
+            - Rifapentine (RPT): ${rpt} mg 1x1 (ทุกวัน)<br>
+            ระยะเวลา: 1 เดือน (28 โดส)
+        `;
+    }
+    else if (regimen === "3HP") {
+        let rpt = w <= 32 ? 600 : (w < 50 ? 750 : 900);
+        outputHtml = `
+            <strong>สูตร: 3HP (TPT / LTBI)</strong><br><br>
+            - Isoniazid (H): 900 mg สัปดาห์ละ 1 ครั้ง<br>
+            - Rifapentine (RPT): ${rpt} mg สัปดาห์ละ 1 ครั้ง<br>
+            ระยะเวลา: 3 เดือน (12 โดส)
+        `;
+    }
+    else if (regimen === "BPaLM") { // MDR-TB Guideline 2567
+        outputHtml = `
+            <strong>สูตร: BPaLM (MDR/RR-TB ระยะสั้น 6 เดือน)</strong><br><br>
+            - Bedaquiline (B): 400 mg/วัน (2 สัปดาห์แรก) -> 200 mg จ.,พ.,ศ.<br>
+            - Pretomanid (Pa): 200 mg 1x1<br>
+            - Linezolid (L): 600 mg 1x1<br>
+            - Moxifloxacin (M): 400 mg 1x1<br>
+            <span style='color:red;'>*ต้องตรวจ ECG (QTc) และ CBC ติดตามสม่ำเสมอ</span>
+        `;
     }
 
-    const btn = document.querySelector(".btn-save");
-    btn.innerText = "กำลังบันทึกข้อมูล...";
-    btn.disabled = true;
+    document.getElementById("res-regimen").innerHTML = outputHtml;
+}
 
-    // รวบรวมข้อมูล Checklist
-    const chkAlerts = [
-        document.getElementById("chk-va").checked ? "ตรวจตาแล้ว" : "ยังไม่ตรวจตา",
-        document.getElementById("chk-lft").checked ? "เจาะ LFT แล้ว" : "ไม่เจาะ LFT",
-        document.getElementById("chk-afb").checked ? "เก็บเสมหะแล้ว" : "ไม่เก็บเสมหะ"
-    ].join(" | ");
-
-    // สร้างข้อมูลที่จะส่งไป Apps Script
-    const payload = {
-        tbNo: currentPatient.tbNo,
-        weight: document.getElementById("p-weight").value,
-        scr: document.getElementById("p-scr").value,
-        crcl: document.getElementById("res-crcl").innerText,
-        regimen: document.getElementById("res-regimen").innerText.replace(/\n/g, " "), // แปลงบรรทัดเป็น Space
-        alerts: chkAlerts
-    };
-
-    try {
-        await fetch(APPSCRIPT_URL, {
-            method: 'POST',
-            redirect: "follow",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8", 
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        alert(`บันทึกข้อมูลการจ่ายยาของ ${currentPatient.name} เรียบร้อยแล้ว!`);
-        
-        // เคลียร์คิวนี้ออกเมื่อบันทึกเสร็จ
-        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
-        renderQueue();
-        closeWorkspace();
-    } catch (error) {
-        console.error("Save Error:", error);
-        alert("ระบบบันทึกสำเร็จ (เนื่องจากข้อจำกัด CORS ของ Google) แต่กรุณาตรวจสอบใน Google Sheets อีกครั้ง");
-        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
-        renderQueue();
-        closeWorkspace();
-    } finally {
-        btn.innerText = "บันทึกผลการจ่ายยา";
-        btn.disabled = false;
+function checkHepatotoxicity() {
+    const ast = parseFloat(document.getElementById("lab-ast").value);
+    const alt = parseFloat(document.getElementById("lab-alt").value);
+    const alertBox = document.getElementById("liver-alert");
+    
+    // สมมติ ULN = 40 U/L
+    if(alt > 200 || ast > 200) { // > 5x ULN
+        alertBox.innerHTML = "<i class='fas fa-radiation-alt'></i> <strong>ALERT: AST/ALT > 5x ULN!</strong><br>แนะนำหยุดยาวัณโรคทุกตัว (Stop Rule) และประเมินอาการทางคลินิกทันที";
+        alertBox.classList.remove("hidden");
+    } else if (alt > 120 || ast > 120) { // > 3x ULN
+        alertBox.innerHTML = "<i class='fas fa-exclamation-circle'></i> <strong>WARNING: AST/ALT > 3x ULN</strong><br>หากผู้ป่วยมีอาการ (คลื่นไส้ อาเจียน ตัวเหลือง ตาเหลือง) ให้หยุดยาทันที";
+        alertBox.classList.remove("hidden");
+    } else {
+        alertBox.classList.add("hidden");
     }
 }
