@@ -60,6 +60,7 @@
                 <div class="tab-content">
                     <div id="tab-dosing" class="tab-pane active">
                         <div class="dosing-grid">
+                            
                             <div class="input-card">
                                 <h3>ข้อมูลน้ำหนัก & ไต</h3>
                                 <label>น้ำหนักปัจจุบัน (kg): <span id="weight-val" class="text-highlight">50</span></label>
@@ -87,6 +88,21 @@
                                 </select>
                                 <div id="res-regimen" class="regimen-output"></div>
                             </div>
+
+                            <div class="dispense-card">
+                                <h3><i class="fas fa-pills"></i> ข้อมูลการจ่ายยา (Dispensing & Pill Count)</h3>
+                                <div class="dispense-inputs">
+                                    <label>วันที่ Visit นี้ (คีย์ย้อนหลังได้): 
+                                        <input type="date" id="visit-date" onchange="renderRoadmap()">
+                                    </label>
+                                    <label>จำนวนวันที่นัด (พิมพ์ตัวเลขได้เลย): 
+                                        <input type="number" id="dispense-days" value="28" min="1" max="365" style="width: 80px;" oninput="calculate()"> วัน
+                                    </label>
+                                </div>
+                                <div id="pill-calc-output" class="pill-output">
+                                    </div>
+                            </div>
+
                         </div>
                     </div>
 
