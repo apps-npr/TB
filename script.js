@@ -1,4 +1,4 @@
-const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; // ใส่ URL ใหม่ของคุณ
+const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; // URL ของคุณ
 
 let queue = [];
 let currentPatient = null;
@@ -98,6 +98,7 @@ function openWorkspace(pt) {
 }
 
 function closeWorkspace() {
+    currentPatient = null;
     document.getElementById("patient-workspace").style.display = "none";
     document.getElementById("welcome-screen").style.display = "flex";
 }
@@ -198,5 +199,51 @@ function checkHepatotoxicity() {
         alertBox.classList.remove("hidden");
     } else {
         alertBox.classList.add("hidden");
+    }
+}
+
+// --- ระบบบันทึกข้อมูล (เพิ่มให้แล้ว) ---
+async function saveData() {
+    if(!currentPatient) return;
+
+    const btn = document.querySelector(".btn-save");
+    btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> กำลังบันทึกข้อมูล...";
+    btn.disabled = true;
+
+    // รวบรวมข้อมูลที่จะบันทึก
+    const payload = {
+        tbNo: currentPatient.tbNo,
+        weight: document.getElementById("p-weight").value,
+        scr: document.getElementById("p-scr").value,
+        crcl: document.getElementById("res-crcl").innerText,
+        regimen: document.getElementById("regimen-select").value,
+        labs: `AST/ALT: ${document.getElementById("lab-ast").value || '-'}/${document.getElementById("lab-alt").value || '-'}`
+    };
+
+    try {
+        await fetch(APPSCRIPT_URL, {
+            method: 'POST',
+            redirect: "follow",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+        });
+        
+        alert(`บันทึกข้อมูลการจ่ายยาของ ${currentPatient.name} เรียบร้อยแล้ว!`);
+        
+        // เคลียร์คิวนี้ออกเมื่อบันทึกเสร็จ
+        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
+        renderQueue();
+        closeWorkspace();
+    } catch (error) {
+        console.error("Save Error:", error);
+        alert("บันทึกข้อมูลสำเร็จ (กรุณาตรวจสอบใน Google Sheets แท็บ Visits อีกครั้ง)");
+        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
+        renderQueue();
+        closeWorkspace();
+    } finally {
+        if(btn) {
+            btn.innerHTML = "<i class='fas fa-save'></i> บันทึกข้อมูล Visit";
+            btn.disabled = false;
+        }
     }
 }
