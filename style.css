@@ -1,4 +1,14 @@
-:root { --primary: #005b96; --secondary: #03396c; --bg: #f0f4f8; --card: #ffffff; --text: #333; --accent: #b3cde0; --danger: #e63946; --success: #2a9d8f; }
+:root { 
+    --primary: #005b96; 
+    --secondary: #03396c; 
+    --bg: #f0f4f8; 
+    --card: #ffffff; 
+    --text: #333; 
+    --accent: #b3cde0; 
+    --danger: #e63946; 
+    --success: #2a9d8f; 
+}
+
 * { box-sizing: border-box; font-family: 'Sarabun', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { margin: 0; background-color: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
 
@@ -24,9 +34,15 @@ button { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: p
 .main-content { flex: 1; padding: 20px; overflow-y: auto; }
 .welcome-screen { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; }
 .workspace { background: var(--card); border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 25px; max-width: 1000px; margin: 0 auto; }
-.patient-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); padding-bottom: 15px; margin-bottom: 20px; }
+.patient-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
 .patient-header h2 { margin: 0; color: var(--secondary); font-size: 1.8rem; }
 .p-meta { color: #666; margin: 5px 0 0; }
+
+/* Date Input (เพิ่มใหม่) */
+.date-input-group { background: #eef2f5; padding: 10px 15px; border-radius: 8px; border: 1px solid #dcdcdc; display: flex; align-items: center; gap: 10px; }
+.date-input-group label { font-weight: bold; color: var(--secondary); font-size: 14px; }
+.date-input-group input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; outline: none; }
+.date-input-group input:focus { border-color: var(--primary); }
 
 /* Roadmap Badges */
 .roadmap-mini { display: flex; gap: 10px; align-items: center; font-size: 14px; font-weight: bold; }
@@ -57,10 +73,33 @@ input[type=range] { width: 100%; margin-top: 15px; accent-color: var(--primary);
 .alert-box { margin-top: 15px; padding: 15px; background: #ffe3e3; border-left: 5px solid var(--danger); color: #900; border-radius: 4px; font-weight: bold; }
 .hidden { display: none; }
 
-/* History Table */
+/* History Table (คงไว้เผื่อใช้งาน) */
 .history-table { width: 100%; border-collapse: collapse; }
 .history-table th, .history-table td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
 .history-table th { background: var(--bg); color: var(--secondary); }
+
+/* Gantt Chart (เพิ่มใหม่) */
+.gantt-wrapper { background: #f9fbfd; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e1e8ed; margin-bottom: 25px; }
+.gantt-info { font-weight: bold; color: var(--secondary); margin-bottom: 12px; text-align: right; font-size: 15px; }
+.gantt-track { height: 28px; background: #e9ecef; border-radius: 15px; overflow: hidden; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+.gantt-progress { height: 100%; background: linear-gradient(90deg, #f4a261, #2a9d8f); width: 0%; transition: width 1s ease-in-out; border-radius: 15px; }
+.gantt-labels { display: flex; justify-content: space-between; margin-top: 10px; font-size: 13px; color: #555; font-weight: bold; }
+
+/* Roadmap Board Cards (เพิ่มใหม่) */
+.roadmap-board { display: flex; flex-direction: column; gap: 15px; max-height: 500px; overflow-y: auto; padding-right: 10px; }
+.roadmap-board::-webkit-scrollbar { width: 8px; }
+.roadmap-board::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+.roadmap-board::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+.roadmap-board::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+.visit-card { background: #fff; border-left: 5px solid var(--primary); padding: 18px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.3s ease; border-right: 1px solid #eee; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
+.visit-card:hover { transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+.visit-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding-bottom: 12px; margin-bottom: 12px; }
+.visit-date { font-weight: bold; color: var(--secondary); font-size: 1.1rem; }
+.visit-metrics { display: flex; flex-wrap: wrap; gap: 12px; font-size: 14px; color: #555; }
+.visit-metrics span { background: #f1f5f9; padding: 6px 12px; border-radius: 20px; font-weight: 500; border: 1px solid #e2e8f0; }
+.visit-metrics span i { color: var(--primary); margin-right: 4px; }
+.visit-regimen { font-family: 'Consolas', monospace; background: #fffdf2; padding: 12px; border: 1px dashed #d4c78a; border-radius: 6px; margin-top: 12px; font-size: 15px; color: #444; line-height: 1.5; }
 
 /* Rechallenge Guide */
 .rechallenge-guide { background: #fffdf2; padding: 20px; border: 1px solid #ffeeba; border-radius: 8px; }
