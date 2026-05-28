@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TB Clinic Smart Workspace</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <h2>คิวผู้ป่วยวันนี้</h2>
+            <div class="queue-input">
+                <input type="text" id="tb-input" placeholder="TB No. (เช่น 01/68)">
+                <button onclick="addToQueue()">+ เตรียมข้อมูล</button>
+            </div>
+            <ul id="queue-list" class="queue-list">
+                </ul>
+        </aside>
+
+        <main class="main-content">
+            <div id="welcome-screen" class="welcome-screen">
+                <h2>กรุณาเลือกผู้ป่วยจากคิว เพื่อเริ่มปฏิบัติงาน</h2>
+            </div>
+
+            <div id="patient-workspace" class="workspace" style="display: none;">
+                <div class="patient-header">
+                    <h2 id="p-name">ชื่อผู้ป่วย</h2>
+                    <p>TB No: <span id="p-tbno"></span> | HN: <span id="p-hn"></span></p>
+                </div>
+
+                <div class="calculator-section">
+                    <h3>Smart Dosing & Renal Adjustment</h3>
+                    <div class="input-grid">
+                        <div><label>อายุ:</label> <input type="number" id="p-age" readonly></div>
+                        <div><label>เพศ:</label> <input type="text" id="p-gender" readonly></div>
+                        <div><label>น้ำหนัก (kg):</label> <input type="number" id="p-weight" oninput="calculate()"></div>
+                        <div><label>Serum Cr:</label> <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()"></div>
+                    </div>
+                    
+                    <div class="result-box">
+                        <p><strong>CrCl (Cockcroft-Gault):</strong> <span id="res-crcl" class="highlight">-</span> ml/min</p>
+                        <hr>
+                        <h4>สูตรยามาตรฐาน 2IRZE/4IR ที่แนะนำ:</h4>
+                        <div id="res-regimen" class="regimen-output"></div>
+                    </div>
+                </div>
+
+                <div class="alert-section">
+                    <h3>Smart Checklist & Alerts</h3>
+                    <label><input type="checkbox" id="chk-va"> ตรวจตา (VA / Color blind) แล้ว</label><br>
+                    <label><input type="checkbox" id="chk-lft"> เจาะ LFT (AST/ALT) ตามเกณฑ์แล้ว</label><br>
+                    <label><input type="checkbox" id="chk-afb"> เก็บเสมหะ AFBx2 ตามเกณฑ์แล้ว</label>
+                </div>
+
+                <div class="actions">
+                    <button class="btn-save" onclick="saveData()">บันทึกผลการจ่ายยา</button>
+                    <button class="btn-cancel" onclick="closeWorkspace()">ย้อนกลับ / ปิด</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
