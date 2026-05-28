@@ -1,4 +1,4 @@
-const APPSCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; // ใส่ URL ใหม่ของคุณ
+const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; // ใส่ URL ใหม่ของคุณ
 
 let queue = [];
 let currentPatient = null;
