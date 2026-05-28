@@ -73,26 +73,21 @@ function openWorkspace(pt) {
     document.getElementById("p-hn").innerText = pt.hn;
     document.getElementById("p-age").innerText = pt.age;
     
-    // Set Slider & Gender
+    // Set Slider
     document.getElementById("p-weight").value = pt.weight;
-    updateWeightSlider(); // กระตุ้นการเปลี่ยนตัวเลขและคำนวณ
-
-    // Render History Table
-    const tBody = document.getElementById("history-body");
-    tBody.innerHTML = "";
-    if(pt.history && pt.history.length > 0) {
-        pt.history.forEach(h => {
-            tBody.innerHTML += `<tr>
-                <td>${new Date(h.date).toLocaleDateString('th-TH')}</td>
-                <td>${h.weight}</td>
-                <td>${h.crcl}</td>
-                <td>${h.regimen}</td>
-                <td>${h.labs}</td>
-            </tr>`;
-        });
+    
+    // [เพิ่มใหม่] ตั้งค่าวางวันที่เริ่มยา (Start Date) จากฐานข้อมูล
+    if(pt.startDate) {
+        let sd = new Date(pt.startDate);
+        if(!isNaN(sd.getTime())) { // เช็คว่าเป็นวันที่ถูกต้อง
+            document.getElementById("p-start-date").value = sd.toISOString().split('T')[0];
+        }
     } else {
-        tBody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>ยังไม่มีประวัติการรับยา</td></tr>";
+        document.getElementById("p-start-date").value = "";
     }
+
+    updateWeightSlider(); // กระตุ้นการเปลี่ยนตัวเลขและคำนวณ
+    renderRoadmap();      // [เพิ่มใหม่] วาด Gantt Chart และประวัติแบบการ์ด
 
     switchTab('tab-dosing'); // Default tab
 }
@@ -180,9 +175,14 @@ function calculate() {
             - Moxifloxacin (M): 400 mg 1x1<br>
             <span style='color:red;'>*ต้องตรวจ ECG (QTc) และ CBC ติดตามสม่ำเสมอ</span>
         `;
+    } else {
+        outputHtml = `<strong>สูตรที่เลือก: ${regimen}</strong>`;
     }
 
     document.getElementById("res-regimen").innerHTML = outputHtml;
+    
+    // [เพิ่มใหม่] คำนวณ Gantt Chart ใหม่เมื่อเปลี่ยนสูตรยา
+    renderRoadmap();
 }
 
 function checkHepatotoxicity() {
@@ -202,7 +202,72 @@ function checkHepatotoxicity() {
     }
 }
 
-// --- ระบบบันทึกข้อมูล (เพิ่มให้แล้ว) ---
+// --- [ฟังก์ชันใหม่] ระบบ Roadmap และ Gantt Chart ---
+function renderRoadmap() {
+    if(!currentPatient) return;
+    
+    const startDateStr = document.getElementById("p-start-date").value;
+    const progBar = document.getElementById("gantt-progress");
+    const durTxt = document.getElementById("gantt-duration");
+    const regimen = document.getElementById("regimen-select").value;
+
+    // ตั้งเป้าหมายระยะเวลารักษา (เดือน) ตามสูตรยา
+    let targetMonths = 6; 
+    if(regimen === "1HP") targetMonths = 1;
+    if(regimen === "3HP") targetMonths = 3;
+
+    // ประมวลผล Gantt Chart
+    if(startDateStr) {
+        const start = new Date(startDateStr);
+        const now = new Date();
+        // คำนวณจำนวนเดือนที่ผ่านมาแล้ว
+        let diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+        if(now.getDate() < start.getDate()) diffMonths--; // ชดเชยกรณีวันที่ยังไม่ถึง
+        
+        let displayMonths = Math.max(0, diffMonths);
+        let percent = (displayMonths / targetMonths) * 100;
+        if(percent > 100) percent = 100;
+
+        if (durTxt) durTxt.innerText = `${displayMonths} / ${targetMonths}`;
+        if (progBar) progBar.style.width = percent + "%";
+    } else {
+        if (durTxt) durTxt.innerText = `0 / ${targetMonths} (กรุณาระบุวันเริ่มยา)`;
+        if (progBar) progBar.style.width = "0%";
+    }
+
+    // วาดบอร์ดประวัติแบบการ์ด (Cards)
+    const board = document.getElementById("roadmap-board");
+    if (!board) return;
+    
+    board.innerHTML = "";
+    if(currentPatient.history && currentPatient.history.length > 0) {
+        currentPatient.history.forEach((h, index) => {
+            const dateStr = new Date(h.date).toLocaleDateString('th-TH');
+            // ไฮไลท์การ์ดล่าสุดให้อยู่ขอบสีเขียว
+            const borderStyle = index === 0 ? "border-left: 5px solid var(--success);" : "";
+            const badge = index === 0 ? "<span style='background:var(--success);color:white;padding:3px 8px;border-radius:12px;font-size:12px;margin-left:10px;'>ล่าสุด</span>" : "";
+            
+            board.innerHTML += `
+                <div class="visit-card" style="${borderStyle}">
+                    <div class="visit-header">
+                        <span class="visit-date"><i class="fas fa-calendar-check"></i> ${dateStr} ${badge}</span>
+                        <span style="color:#888; font-size:14px;">Visit #${currentPatient.history.length - index}</span>
+                    </div>
+                    <div class="visit-metrics">
+                        <span><i class="fas fa-weight"></i> ${h.weight} kg</span>
+                        <span><i class="fas fa-vial"></i> CrCl: ${h.crcl}</span>
+                        <span><i class="fas fa-microscope"></i> Labs: ${h.labs || '-'}</span>
+                    </div>
+                    <div class="visit-regimen">${h.regimen}</div>
+                </div>
+            `;
+        });
+    } else {
+        board.innerHTML = "<p style='color:#888; text-align:center;'>ยังไม่มีประวัติการจ่ายยาในระบบ</p>";
+    }
+}
+
+// --- [ปรับปรุง] ระบบบันทึกข้อมูล (แก้ปัญหา CORS Error) ---
 async function saveData() {
     if(!currentPatient) return;
 
@@ -213,22 +278,24 @@ async function saveData() {
     // รวบรวมข้อมูลที่จะบันทึก
     const payload = {
         tbNo: currentPatient.tbNo,
+        startDate: document.getElementById("p-start-date").value, // ส่งวันเริ่มยากลับไปบันทึกด้วย
         weight: document.getElementById("p-weight").value,
         scr: document.getElementById("p-scr").value,
         crcl: document.getElementById("res-crcl").innerText,
-        regimen: document.getElementById("regimen-select").value,
+        regimen: document.getElementById("res-regimen").innerText.replace(/\n/g, " "),
         labs: `AST/ALT: ${document.getElementById("lab-ast").value || '-'}/${document.getElementById("lab-alt").value || '-'}`
     };
 
     try {
+        // ใช้ mode: 'no-cors' เพื่อบังคับส่งข้อมูลโดยไม่สนนโยบายการบล็อกของ Browser
         await fetch(APPSCRIPT_URL, {
             method: 'POST',
-            redirect: "follow",
+            mode: 'no-cors',
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify(payload)
         });
         
-        alert(`บันทึกข้อมูลการจ่ายยาของ ${currentPatient.name} เรียบร้อยแล้ว!`);
+        alert(`บันทึกข้อมูลและอัปเดต Timeline ของ ${currentPatient.name} เรียบร้อยแล้ว!`);
         
         // เคลียร์คิวนี้ออกเมื่อบันทึกเสร็จ
         queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
@@ -236,10 +303,7 @@ async function saveData() {
         closeWorkspace();
     } catch (error) {
         console.error("Save Error:", error);
-        alert("บันทึกข้อมูลสำเร็จ (กรุณาตรวจสอบใน Google Sheets แท็บ Visits อีกครั้ง)");
-        queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
-        renderQueue();
-        closeWorkspace();
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่ออินเทอร์เน็ต กรุณาลองใหม่");
     } finally {
         if(btn) {
             btn.innerHTML = "<i class='fas fa-save'></i> บันทึกข้อมูล Visit";
