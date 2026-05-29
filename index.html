@@ -10,13 +10,10 @@
 <body>
     <div class="app-container">
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2><i class="fas fa-lungs-virus"></i> TB Clinic Queue</h2>
-            </div>
+            <div class="sidebar-header"><h2><i class="fas fa-lungs-virus"></i> TB Clinic Queue</h2></div>
             <div class="queue-input">
-                <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:15px;">
-                    <i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่
-                </button>
+                <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:10px;"><i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่</button>
+                <button class="btn-info" onclick="openKnowledgeModal()" style="margin-bottom:15px; background:#0ea5e9; color:white;"><i class="fas fa-book-medical"></i> คู่มือ & Rechallenge</button>
                 <textarea id="batch-input" placeholder="วาง HN ค้นหาหลายคน (คั่นด้วย Enter)"></textarea>
                 <button class="btn-primary" onclick="importBatch()"><i class="fas fa-file-import"></i> ดึงประวัติเข้าคิว</button>
                 <div class="divider">หรือ</div>
@@ -28,13 +25,10 @@
 
         <main class="main-content">
             <div id="welcome-screen" class="welcome-screen">
-                <i class="fas fa-laptop-medical fa-4x"></i>
-                <h2>TB Pharmacist Dashboard</h2>
-                <p>โปรดเลือกผู้ป่วยจากคิว หรือเพิ่มผู้ป่วยใหม่ เพื่อเริ่มการบริบาล</p>
+                <i class="fas fa-laptop-medical fa-4x"></i><h2>TB Pharmacist Dashboard</h2><p>โปรดเลือกผู้ป่วยจากคิว หรือเพิ่มผู้ป่วยใหม่</p>
             </div>
 
             <div id="patient-workspace" class="workspace" style="display: none;">
-                
                 <div class="patient-header">
                     <div class="profile-info">
                         <h2 id="p-name">-</h2>
@@ -43,81 +37,83 @@
                             <strong>HN:</strong> <span id="p-hn"></span> | 
                             <strong>อายุ:</strong> <span id="p-age"></span> ปี
                         </p>
+                        <p class="p-meta" style="margin-top:5px; color:#ef4444;"><strong><i class="fas fa-allergies"></i> ประวัติแพ้ยา:</strong> <span id="p-allergy">-</span></p>
                     </div>
                     <div class="treatment-summary">
                         <div class="date-input-group">
                             <label><i class="fas fa-flag-checkered"></i> วันเริ่มยา (Start Date):</label>
                             <input type="date" id="p-start-date" onchange="renderDashboard()">
                         </div>
-                        <div class="duration-badge" id="treatment-duration-badge">
-                            ระยะเวลาที่รับยา: - 
-                        </div>
+                        <div class="duration-badge" id="treatment-duration-badge">ระยะเวลาที่รับยา: - </div>
                     </div>
                 </div>
 
                 <div class="dashboard-grid">
-                    
                     <div class="left-panel">
                         <div class="panel-header"><i class="fas fa-history"></i> ประวัติการรักษา (History & Roadmap)</div>
                         <div class="gantt-wrapper">
                             <div class="gantt-info" id="gantt-info">ประเมินความคืบหน้า</div>
                             <div class="gantt-track"><div id="gantt-progress" class="gantt-progress"></div></div>
                         </div>
-                        <div id="roadmap-board" class="roadmap-board">
-                            </div>
+                        <div id="roadmap-board" class="roadmap-board"></div>
                     </div>
 
                     <div class="right-panel">
-                        <div class="panel-header"><i class="fas fa-edit"></i> บันทึก Visit ข้อมูลปัจจุบัน / ย้อนหลัง</div>
+                        <div class="panel-header"><i class="fas fa-edit"></i> บันทึก Visit & จ่ายยา</div>
                         
+                        <div id="smart-lab-box" class="smart-lab-box hidden">
+                            <strong><i class="fas fa-lightbulb"></i> แนะนำ Lab สำหรับ Visit นี้:</strong> <span id="smart-lab-text"></span>
+                        </div>
+
                         <div class="entry-section">
                             <label><strong>1. วันที่ Visit:</strong></label>
-                            <input type="date" id="visit-date" class="full-width-input" onchange="renderDashboard()">
+                            <input type="date" id="visit-date" class="full-width-input" onchange="syncDates('visit'); renderDashboard();">
                         </div>
 
                         <div class="entry-section split-2">
-                            <div>
-                                <label>น้ำหนัก (kg): <span id="weight-val" class="text-highlight">50</span></label>
-                                <input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()">
-                            </div>
-                            <div>
-                                <label>Serum Cr:</label>
-                                <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()">
-                                <div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div>
-                            </div>
+                            <div><label>น้ำหนัก (kg): <span id="weight-val" class="text-highlight">50</span></label><input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()"></div>
+                            <div><label>Serum Cr:</label><input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()"><div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div></div>
                         </div>
 
-                        <div class="entry-section split-2">
-                            <div><label>AST (U/L):</label><input type="number" id="lab-ast" oninput="checkHepatotoxicity()"></div>
-                            <div><label>ALT (U/L):</label><input type="number" id="lab-alt" oninput="checkHepatotoxicity()"></div>
+                        <div class="entry-section">
+                            <label><strong>ผล Lab เพิ่มเติม (Microbiology & LFT):</strong></label>
+                            <div class="lab-inputs-grid">
+                                <div><small>AST (U/L):</small><input type="number" id="lab-ast" class="full-width-input" oninput="checkHepatotoxicity()"></div>
+                                <div><small>ALT (U/L):</small><input type="number" id="lab-alt" class="full-width-input" oninput="checkHepatotoxicity()"></div>
+                                <div><small>TB / DB:</small><input type="text" id="lab-tbdb" class="full-width-input" placeholder="เช่น 1.2/0.4"></div>
+                                <div><small>Sputum AFB:</small><select id="lab-afb" class="full-width-input"><option value="">- เลือก -</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select></div>
+                                <div><small>Xpert MTB/RIF:</small><select id="lab-xpert" class="full-width-input"><option value="">- เลือก -</option><option>MTB Detected, RIF Sus</option><option>MTB Detected, RIF Res</option></select></div>
+                                <div><small>Line Probe Assay (LPA):</small><input type="text" id="lab-lpa" class="full-width-input" placeholder="ผล LPA"></div>
+                            </div>
+                            <div id="liver-alert" class="alert-box hidden" style="margin-top:10px;"></div>
                         </div>
-                        <div id="liver-alert" class="alert-box hidden" style="margin-bottom:15px;"></div>
 
                         <div class="entry-section">
                             <label><strong>2. สูตรยา (Regimen):</strong></label>
                             <select id="regimen-select" class="full-width-input" onchange="calculate()">
-                                <optgroup label="วัณโรคปอด (DS-TB)">
-                                    <option value="HRZE">2HRZE / 4HR (มาตรฐาน 6 เดือน)</option>
-                                    <option value="HR">HR (ระยะ Continuation)</option>
-                                    <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
-                                    <option value="9HRE">9HRE (ปรับระยะเวลาตามแพทย์)</option>
-                                </optgroup>
-                                <optgroup label="วัณโรคระยะแฝง (TPT - LTBI)">
-                                    <option value="1HP">1HP (Daily 1 month)</option>
-                                    <option value="3HP">3HP (Weekly 3 months)</option>
-                                </optgroup>
-                                <optgroup label="วัณโรคดื้อยา (DR-TB)">
-                                    <option value="BPaLM">BPaLM (6 เดือน)</option>
-                                </optgroup>
+                                <optgroup label="วัณโรคปอด (DS-TB)"><option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option><option value="HR">HR (ระยะ Continuation)</option><option value="HRE">HRE</option><option value="9HRE">9HRE</option></optgroup>
+                                <optgroup label="วัณโรคระยะแฝง (TPT)"><option value="1HP">1HP (Daily 1 month)</option><option value="3HP">3HP (Weekly 3 months)</option></optgroup>
+                                <optgroup label="วัณโรคดื้อยา (DR-TB)"><option value="BPaLM">BPaLM (6 เดือน)</option></optgroup>
                             </select>
-                            <div id="res-regimen" class="regimen-output" style="margin-top:10px;"></div>
+                            <div id="res-regimen" class="regimen-output"></div>
                         </div>
 
                         <div class="entry-section">
-                            <label><strong>3. จำนวนวันจ่ายยา (ระบุวันได้อิสระ):</strong></label>
-                            <input type="number" id="dispense-days" class="full-width-input" value="28" min="1" max="365" oninput="calculate()">
-                            
-                            <div id="pill-calc-output" class="pill-output" style="margin-top:10px;"></div>
+                            <label><strong>3. จำนวนวันจ่ายยา / วันนัด:</strong></label>
+                            <div class="quick-days">
+                                <button class="quick-btn" onclick="setDays(14)">14</button>
+                                <button class="quick-btn" onclick="setDays(28)">28</button>
+                                <button class="quick-btn" onclick="setDays(56)">56</button>
+                                <button class="quick-btn" onclick="setDays(84)">84</button>
+                                <button class="quick-btn" onclick="setDays(112)">112</button>
+                                <button class="quick-btn" onclick="setDays(140)">140</button>
+                                <button class="quick-btn" onclick="setDays(168)">168</button>
+                            </div>
+                            <div class="split-2" style="margin-top:10px;">
+                                <div><small>จำนวนวัน (Days):</small><input type="number" id="dispense-days" class="full-width-input" value="28" min="1" oninput="syncDates('days')"></div>
+                                <div><small>วันนัดครั้งถัดไป:</small><input type="date" id="next-appt-date" class="full-width-input" onchange="syncDates('appt')"></div>
+                            </div>
+                            <div id="pill-calc-output" class="pill-output"></div>
                         </div>
 
                         <div class="actions">
@@ -132,25 +128,44 @@
 
     <div id="newPatientModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
+            <span class="close" onclick="closeModal('newPatientModal')">&times;</span>
             <h2><i class="fas fa-user-plus"></i> เพิ่มโปรไฟล์ผู้ป่วยใหม่</h2>
             <div class="modal-grid">
-                <label>TB Number: <input type="text" id="new-tbno" placeholder="เช่น 01/68"></label>
-                <label>HN: <input type="text" id="new-hn" placeholder="เช่น 123456"></label>
+                <label>TB Number: <input type="text" id="new-tbno"></label>
+                <label>HN: <input type="text" id="new-hn"></label>
                 <label>ชื่อ-นามสกุล: <input type="text" id="new-name"></label>
                 <label>อายุ: <input type="number" id="new-age"></label>
-                <label>เพศ: 
-                    <select id="new-gender">
-                        <option value="M">ชาย (Male)</option>
-                        <option value="F">หญิง (Female)</option>
-                    </select>
-                </label>
+                <label>เพศ: <select id="new-gender"><option value="M">ชาย</option><option value="F">หญิง</option></select></label>
                 <label>น้ำหนักแรกรับ (kg): <input type="number" id="new-weight"></label>
-                <label>วันที่เริ่มยา (Start Date): <input type="date" id="new-startdate"></label>
+                <label>วันที่เริ่มยา: <input type="date" id="new-startdate"></label>
+                <label>ประวัติแพ้ยา (Allergy): <input type="text" id="new-allergy" placeholder="ถ้าไม่มีให้เว้นว่าง หรือขีด - "></label>
             </div>
-            <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;">
-                <i class="fas fa-save"></i> สร้างโปรไฟล์
-            </button>
+            <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;"><i class="fas fa-save"></i> สร้างโปรไฟล์</button>
+        </div>
+    </div>
+
+    <div id="knowledgeModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" onclick="closeModal('knowledgeModal')">&times;</span>
+            <h2><i class="fas fa-book-medical"></i> คู่มือ & Drug Rechallenge</h2>
+            <div style="font-size:14px; line-height:1.6; color:#374151; max-height:60vh; overflow-y:auto; padding-right:10px;">
+                <h4 style="color:var(--primary);"><i class="fas fa-exclamation-triangle"></i> เกณฑ์หยุดยา (Stop Rule)</h4>
+                <p>หยุดยาทันทีเมื่อ: <br>- <b>ALT > 3 เท่า</b> ของค่าปกติ (ULN) <u>พร้อมมีอาการ</u> (เช่น คลื่นไส้ อาเจียน ตัวเหลือง)<br>- <b>ALT > 5 เท่า</b> ของ ULN <u>โดยไม่มีอาการ</u></p>
+                <hr>
+                <h4 style="color:var(--primary);"><i class="fas fa-redo"></i> Step การ Rechallenge</h4>
+                <p><i>เริ่มเมื่ออาการตับอักเสบหาย และ ALT < 2x ULN</i></p>
+                <ul>
+                    <li><strong>Day 1-3:</strong> เริ่ม <b>Ethambutol (E)</b> ขนาดเต็มที่ สังเกตอาการ</li>
+                    <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่ (อาจมี transient hyperbilirubinemia)</li>
+                    <li><strong>Day 7-9:</strong> เพิ่ม <b>Isoniazid (H)</b> ขนาดเต็มที่</li>
+                    <li><i>*ไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้เปลี่ยนเป็น 9HRE แทน</i></li>
+                </ul>
+                <hr>
+                <h4 style="color:var(--primary);"><i class="fas fa-info-circle"></i> ข้อมูลเพิ่มเติม</h4>
+                <p><b>LTBI (วัณโรคระยะแฝง):</b> ไม่แพร่เชื้อ ไม่มีอาการ แต่มีความเสี่ยงพัฒนาเป็นวัณโรคกำเริบ <br>
+                <b>1HP:</b> เหมาะสำหรับผู้ที่มีน้ำหนักตัวเพียงพอ และไม่มีข้อห้ามการใช้ Rifapentine<br>
+                <b>BPaLM:</b> สำหรับผู้ป่วย MDR/RR-TB ระยะเวลา 6 เดือน ต้องประเมิน QTc interval เสมอ</p>
+            </div>
         </div>
     </div>
 
