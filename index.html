@@ -37,12 +37,13 @@
                             <strong>HN:</strong> <span id="p-hn"></span> | 
                             <strong>อายุ:</strong> <span id="p-age"></span> ปี
                         </p>
+                        <p class="p-meta" style="margin-top:5px; color:#005b96;"><strong><i class="fas fa-stethoscope"></i> Diagnosis:</strong> <span id="p-diag">-</span></p>
                         <p class="p-meta" style="margin-top:5px; color:#ef4444;"><strong><i class="fas fa-allergies"></i> ประวัติแพ้ยา:</strong> <span id="p-allergy">-</span></p>
                     </div>
                     <div class="treatment-summary">
                         <div class="date-input-group">
                             <label><i class="fas fa-flag-checkered"></i> วันเริ่มยา (Start Date):</label>
-                            <input type="date" id="p-start-date" onchange="renderDashboard()">
+                            <input type="date" id="p-start-date" onchange="renderDashboard(); calculate();">
                         </div>
                         <div class="duration-badge" id="treatment-duration-badge">ระยะเวลาที่รับยา: - </div>
                     </div>
@@ -67,7 +68,7 @@
 
                         <div class="entry-section">
                             <label><strong>1. วันที่ Visit:</strong></label>
-                            <input type="date" id="visit-date" class="full-width-input" onchange="syncDates('visit'); renderDashboard();">
+                            <input type="date" id="visit-date" class="full-width-input" onchange="syncDates('visit'); renderDashboard(); calculate();">
                         </div>
 
                         <div class="entry-section split-2">
@@ -83,7 +84,7 @@
                                 <div><small>TB / DB:</small><input type="text" id="lab-tbdb" class="full-width-input" placeholder="เช่น 1.2/0.4"></div>
                                 <div><small>Sputum AFB:</small><select id="lab-afb" class="full-width-input"><option value="">- เลือก -</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select></div>
                                 <div><small>Xpert MTB/RIF:</small><select id="lab-xpert" class="full-width-input"><option value="">- เลือก -</option><option>MTB Detected, RIF Sus</option><option>MTB Detected, RIF Res</option></select></div>
-                                <div><small>Line Probe Assay (LPA):</small><input type="text" id="lab-lpa" class="full-width-input" placeholder="ผล LPA"></div>
+                                <div><small>LPA:</small><input type="text" id="lab-lpa" class="full-width-input" placeholder="ผล LPA"></div>
                             </div>
                             <div id="liver-alert" class="alert-box hidden" style="margin-top:10px;"></div>
                         </div>
@@ -91,9 +92,18 @@
                         <div class="entry-section">
                             <label><strong>2. สูตรยา (Regimen):</strong></label>
                             <select id="regimen-select" class="full-width-input" onchange="calculate()">
-                                <optgroup label="วัณโรคปอด (DS-TB)"><option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option><option value="HR">HR (ระยะ Continuation)</option><option value="HRE">HRE</option><option value="9HRE">9HRE</option></optgroup>
-                                <optgroup label="วัณโรคระยะแฝง (TPT)"><option value="1HP">1HP (Daily 1 month)</option><option value="3HP">3HP (Weekly 3 months)</option></optgroup>
-                                <optgroup label="วัณโรคดื้อยา (DR-TB)"><option value="BPaLM">BPaLM (6 เดือน)</option></optgroup>
+                                <optgroup label="วัณโรคปอด (DS-TB)">
+                                    <option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option>
+                                    <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
+                                    <option value="HR">HR (ระยะ Continuation)</option>
+                                </optgroup>
+                                <optgroup label="วัณโรคระยะแฝง (TPT)">
+                                    <option value="1HP">1HP (Daily 1 month)</option>
+                                    <option value="3HP">3HP (Weekly 3 months)</option>
+                                </optgroup>
+                                <optgroup label="วัณโรคดื้อยา (DR-TB)">
+                                    <option value="BPaLM">BPaLM (6 เดือน)</option>
+                                </optgroup>
                             </select>
                             <div id="res-regimen" class="regimen-output"></div>
                         </div>
@@ -138,7 +148,15 @@
                 <label>เพศ: <select id="new-gender"><option value="M">ชาย</option><option value="F">หญิง</option></select></label>
                 <label>น้ำหนักแรกรับ (kg): <input type="number" id="new-weight"></label>
                 <label>วันที่เริ่มยา: <input type="date" id="new-startdate"></label>
-                <label>ประวัติแพ้ยา (Allergy): <input type="text" id="new-allergy" placeholder="ถ้าไม่มีให้เว้นว่าง หรือขีด - "></label>
+                <label>Diagnosis: 
+                    <select id="new-diag">
+                        <option value="Pulmonary TB (ปอด)">Pulmonary TB</option>
+                        <option value="Extrapulmonary TB (นอกปอด)">Extrapulmonary TB</option>
+                        <option value="LTBI (ระยะแฝง)">LTBI</option>
+                        <option value="MDR/RR-TB (ดื้อยา)">MDR/RR-TB</option>
+                    </select>
+                </label>
+                <label style="grid-column: span 2;">ประวัติแพ้ยา (Allergy): <input type="text" id="new-allergy" placeholder="ถ้าไม่มีให้เว้นว่าง หรือขีด - "></label>
             </div>
             <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;"><i class="fas fa-save"></i> สร้างโปรไฟล์</button>
         </div>
@@ -158,13 +176,8 @@
                     <li><strong>Day 1-3:</strong> เริ่ม <b>Ethambutol (E)</b> ขนาดเต็มที่ สังเกตอาการ</li>
                     <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่ (อาจมี transient hyperbilirubinemia)</li>
                     <li><strong>Day 7-9:</strong> เพิ่ม <b>Isoniazid (H)</b> ขนาดเต็มที่</li>
-                    <li><i>*ไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้เปลี่ยนเป็น 9HRE แทน</i></li>
+                    <li><i>*ไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้เปลี่ยนเป็น HRE แทน</i></li>
                 </ul>
-                <hr>
-                <h4 style="color:var(--primary);"><i class="fas fa-info-circle"></i> ข้อมูลเพิ่มเติม</h4>
-                <p><b>LTBI (วัณโรคระยะแฝง):</b> ไม่แพร่เชื้อ ไม่มีอาการ แต่มีความเสี่ยงพัฒนาเป็นวัณโรคกำเริบ <br>
-                <b>1HP:</b> เหมาะสำหรับผู้ที่มีน้ำหนักตัวเพียงพอ และไม่มีข้อห้ามการใช้ Rifapentine<br>
-                <b>BPaLM:</b> สำหรับผู้ป่วย MDR/RR-TB ระยะเวลา 6 เดือน ต้องประเมิน QTc interval เสมอ</p>
             </div>
         </div>
     </div>
