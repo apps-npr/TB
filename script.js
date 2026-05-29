@@ -3,6 +3,55 @@ const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkues
 let queue = [];
 let currentPatient = null;
 
+// --- จัดการผู้ป่วยใหม่ (New Patient Modal) ---
+function openNewPatientModal() { 
+    document.getElementById("newPatientModal").style.display = "block"; 
+}
+function closeModal() { 
+    document.getElementById("newPatientModal").style.display = "none"; 
+}
+
+async function saveNewPatient() {
+    const btn = document.querySelector(".modal-content .btn-success");
+    btn.innerHTML = "<i class='fas fa-spinner fa-spin'></i> กำลังสร้างโปรไฟล์..."; 
+    btn.disabled = true;
+
+    const payload = {
+        action: "add_patient", // แจ้ง Apps Script ว่าเป็นการสร้างคนไข้ใหม่
+        tbNo: document.getElementById("new-tbno").value,
+        hn: document.getElementById("new-hn").value,
+        name: document.getElementById("new-name").value,
+        age: document.getElementById("new-age").value,
+        gender: document.getElementById("new-gender").value,
+        weight: document.getElementById("new-weight").value,
+        startDate: document.getElementById("new-startdate").value
+    };
+
+    if(!payload.tbNo || !payload.hn || !payload.name) { 
+        alert("กรุณากรอกข้อมูลสำคัญ (TB No, HN, ชื่อ) ให้ครบถ้วน"); 
+        btn.innerHTML = "<i class='fas fa-save'></i> สร้างโปรไฟล์"; 
+        btn.disabled = false; 
+        return; 
+    }
+
+    try {
+        await fetch(APPSCRIPT_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+            body: JSON.stringify(payload) 
+        });
+        alert("สร้างโปรไฟล์สำเร็จ! คุณสามารถพิมพ์ค้นหา HN หรือ TB No. นี้เพื่อเริ่มสั่งยาได้เลย");
+        closeModal();
+    } catch(err) { 
+        alert("เกิดข้อผิดพลาดในการสร้างโปรไฟล์"); 
+    } finally { 
+        btn.innerHTML = "<i class='fas fa-save'></i> สร้างโปรไฟล์"; 
+        btn.disabled = false; 
+    }
+}
+
+
 // --- ระบบนำเข้าคิว ---
 async function importBatch() {
     const input = document.getElementById("batch-input").value;
@@ -27,7 +76,7 @@ async function importBatch() {
         }
     } catch(err) { console.error(err); alert("ดึงข้อมูลล้มเหลว"); }
     
-    btn.innerHTML = "<i class='fas fa-file-import'></i> นำเข้าคิว (Batch)";
+    btn.innerHTML = "<i class='fas fa-file-import'></i> ดึงประวัติเข้าคิว";
     btn.disabled = false;
 }
 
@@ -47,7 +96,7 @@ async function addSingleQueue() {
                 renderQueue();
                 document.getElementById("single-input").value = "";
             } else { alert("คนไข้อยู่ในคิวแล้ว"); }
-        } else { alert("ไม่พบข้อมูล"); }
+        } else { alert("ไม่พบข้อมูลผู้ป่วยในระบบ"); }
     } catch(err) { console.error(err); }
 }
 
@@ -62,7 +111,7 @@ function renderQueue() {
     });
 }
 
-// --- ระบบ UI & Tabs ---
+// --- เปิดหน้า Dashboard ---
 function openWorkspace(pt) {
     currentPatient = pt;
     document.getElementById("welcome-screen").style.display = "none";
@@ -73,20 +122,20 @@ function openWorkspace(pt) {
     document.getElementById("p-hn").innerText = pt.hn;
     document.getElementById("p-age").innerText = pt.age;
     
-    // Set Slider
+    // Set Slider & Input
     document.getElementById("p-weight").value = pt.weight;
     
     // ตั้งค่าวางวันที่เริ่มยา (Start Date) จากฐานข้อมูล
     if(pt.startDate) {
         let sd = new Date(pt.startDate);
-        if(!isNaN(sd.getTime())) { // เช็คว่าเป็นวันที่ถูกต้อง
+        if(!isNaN(sd.getTime())) { 
             document.getElementById("p-start-date").value = sd.toISOString().split('T')[0];
         }
     } else {
         document.getElementById("p-start-date").value = "";
     }
 
-    // [เพิ่มใหม่] เซ็ตวันที่ Visit เป็นปัจจุบัน และจำนวนวันเป็น 28 วัน อัตโนมัติ (ผู้ใช้แก้ได้)
+    // เซ็ตวันที่ Visit เป็นปัจจุบัน และจำนวนวันเป็น 28 วัน อัตโนมัติ (ผู้ใช้แก้ได้)
     if(document.getElementById("visit-date")) {
         document.getElementById("visit-date").value = new Date().toISOString().split('T')[0];
     }
@@ -94,10 +143,8 @@ function openWorkspace(pt) {
         document.getElementById("dispense-days").value = "28";
     }
 
-    updateWeightSlider(); // กระตุ้นการเปลี่ยนตัวเลขและคำนวณ
-    renderRoadmap();      // วาด Gantt Chart และประวัติแบบการ์ด
-
-    switchTab('tab-dosing'); // Default tab
+    updateWeightSlider(); // กระตุ้นการเปลี่ยนตัวเลขและคำนวณสูตรยา
+    // (ฟังก์ชัน renderRoadmap และ renderPillCalc จะถูกเรียกใช้ภายใน calculate() อัตโนมัติ)
 }
 
 function closeWorkspace() {
@@ -106,24 +153,16 @@ function closeWorkspace() {
     document.getElementById("welcome-screen").style.display = "flex";
 }
 
-function switchTab(tabId) {
-    document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
-    event.currentTarget.classList.add('active');
-}
-
 // --- Clinical Logic (อ้างอิง Guideline ประเทศไทย) ---
 function updateWeightSlider() {
-    const w = document.getElementById("p-weight").value;
-    document.getElementById("weight-val").innerText = w;
+    document.getElementById("weight-val").innerText = document.getElementById("p-weight").value;
     calculate();
 }
 
 function calculate() {
     const w = parseFloat(document.getElementById("p-weight").value);
     const age = parseFloat(document.getElementById("p-age").innerText);
-    const gender = currentPatient.gender; // "M" หรือ "F"
+    const gender = currentPatient.gender; 
     const scr = parseFloat(document.getElementById("p-scr").value) || 1.0;
     const regimen = document.getElementById("regimen-select").value;
     
@@ -140,13 +179,16 @@ function calculate() {
     let outputHtml = "";
     let inh=0, r=0, z=0, e=0;
     
-    if (regimen === "HRZE") {
-        if (w < 35) { inh=200; r=300; z=750; e=600; }
-        else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
-        else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
-        else { inh=300; r=600; z=2000; e=1200; }
+    // หาโดสยามาตรฐานตามช่วงน้ำหนักก่อน
+    if (w < 35) { inh=200; r=300; z=750; e=600; }
+    else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
+    else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
+    else { inh=300; r=600; z=2000; e=1200; }
         
-        let hzStr = isRenal ? "<span style='color:red;'>[ปรับ 3 วัน/สัปดาห์ M,W,F]</span>" : "[ทุกวัน]";
+    let hzStr = isRenal ? "<span style='color:red;'>[ปรับ 3 วัน/สัปดาห์ M,W,F]</span>" : "[ทุกวัน]";
+
+    // นำโดสที่ได้มาจับคู่กับ Regimen ที่เลือก
+    if (regimen === "HRZE") {
         outputHtml = `
             <strong>สูตร: 2HRZE / 4HR (น้ำหนัก ${w} kg)</strong><br><br>
             - Isoniazid (H): ${inh} mg 1x1 hs<br>
@@ -156,6 +198,25 @@ function calculate() {
             <span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>
         `;
     } 
+    else if (regimen === "HRE" || regimen === "9HRE") {
+        z = 0; // ตัด PZA ทิ้ง
+        outputHtml = `
+            <strong>สูตร: ${regimen} (กรณีตับอักเสบ/ห้ามใช้ Z)</strong><br><br>
+            - Isoniazid (H): ${inh} mg 1x1 hs<br>
+            - Rifampicin (R): ${r} mg 1x1 hs<br>
+            - Ethambutol (E): ${e} mg ${hzStr}<br><br>
+            <span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>
+        `;
+    }
+    else if (regimen === "HR") {
+        z = 0; e = 0; // ตัด PZA และ EMB ทิ้ง (ระยะต่อเนื่อง)
+        outputHtml = `
+            <strong>สูตร: HR (ระยะ Continuation Phase)</strong><br><br>
+            - Isoniazid (H): ${inh} mg 1x1 hs<br>
+            - Rifampicin (R): ${r} mg 1x1 hs<br><br>
+            <span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>
+        `;
+    }
     else if (regimen === "1HP") { // Guideline TPT 2566/2568
         let rpt = w < 35 ? 300 : (w <= 45 ? 450 : 600);
         outputHtml = `
@@ -189,12 +250,12 @@ function calculate() {
 
     document.getElementById("res-regimen").innerHTML = outputHtml;
     
-    // [เพิ่มใหม่] คำนวณตารางเม็ดยา และ Gantt Chart
+    // อัปเดตตาราง Pill Count และ Dashboard เสมอ เมื่อมีการคำนวณใหม่
     renderPillCalc(regimen, inh, r, z, e, isRenal);
-    renderRoadmap();
+    renderDashboard();
 }
 
-// --- [ฟังก์ชันใหม่] คำนวณจำนวนเม็ดยาอัจฉริยะ (Pill Count) ---
+// --- ฟังก์ชันคำนวณจำนวนเม็ดยาอัจฉริยะ (Pill Count) ---
 function renderPillCalc(regimen, inh, r, z, e, isRenal) {
     const daysInput = document.getElementById("dispense-days");
     if(!daysInput) return;
@@ -203,43 +264,52 @@ function renderPillCalc(regimen, inh, r, z, e, isRenal) {
     const weeks = days / 7;
     let html = "";
     
-    if (regimen === "HRZE") {
+    // คำนวณเม็ดยาเฉพาะกลุ่มที่มี First-line drugs (HRZE, HRE, HR)
+    if (["HRZE", "HRE", "9HRE", "HR"].includes(regimen)) {
         let freqDaily = days;
-        // ยาไต M,W,F = สัปดาห์ละ 3 วัน (เอาสัปดาห์คูณ 3)
+        // ยาไต M,W,F = สัปดาห์ละ 3 วัน 
         let freqRenal = isRenal ? Math.floor(weeks) * 3 : days;
         
-        // กฎการคำนวณเม็ดยา
         let h_pills = inh / 100; // เม็ดละ 100mg
         let r_pills = (r === 600) ? 2 : 1; 
         let r_size = (r === 450) ? 450 : 300; // แคปซูล 300 หรือ 450
         let z_pills = z / 500; // เม็ดละ 500mg
-        
-        // E เม็ดละ 400mg (ห้ามแบ่งครึ่ง ปัดขึ้นเสมอ)
-        let e_pills = Math.ceil(e / 400); 
+        let e_pills = Math.ceil(e / 400); // E ปัดขึ้นเสมอ ห้ามหักครึ่ง
 
-        html = `
-            <table class="pill-table">
-                <tr><th>รายการยา (Drug)</th><th>ขนาดยา/มื้อ</th><th>จำนวนมื้อ<br><small>(Doses)</small></th><th>รวมจ่าย <br><small>(Total Dispense)</small></th></tr>
-                <tr><td>Isoniazid (H) 100 mg</td><td>${h_pills} เม็ด</td><td>${freqDaily}</td><td><strong>${h_pills * freqDaily}</strong> เม็ด</td></tr>
-                <tr><td>Rifampicin (R) ${r_size} mg</td><td>${r_pills} แคปซูล<span class="alert-note">*(ห้ามแกะ/หักแคปซูล)</span></td><td>${freqDaily}</td><td><strong>${r_pills * freqDaily}</strong> แคปซูล</td></tr>
-                <tr><td>Pyrazinamide (Z) 500 mg</td><td>${z_pills} เม็ด</td><td>${freqRenal}</td><td><strong>${z_pills * freqRenal}</strong> เม็ด</td></tr>
-                <tr><td>Ethambutol (E) 400 mg</td><td>${e_pills} เม็ด ${(e/400 !== e_pills) ? '<span class="alert-note">*(ปัดเศษขึ้น ทิ้งครึ่งเม็ด)</span>' : ''}</td><td>${freqRenal}</td><td><strong>${e_pills * freqRenal}</strong> เม็ด</td></tr>
-                <tr><td>Vitamin B6 50 mg</td><td>1 เม็ด</td><td>${freqDaily}</td><td><strong>${freqDaily}</strong> เม็ด</td></tr>
-            </table>
-        `;
+        let trHtml = `<tr><th>รายการยา (Drug)</th><th>ขนาด/มื้อ</th><th>จำนวนมื้อ<br><small>(Doses)</small></th><th>รวมจ่าย <br><small>(Total)</small></th></tr>`;
+        
+        // Isoniazid
+        trHtml += `<tr><td>Isoniazid (H) 100 mg</td><td>${h_pills} เม็ด</td><td>${freqDaily}</td><td><strong>${h_pills * freqDaily}</strong> เม็ด</td></tr>`;
+        
+        // Rifampicin
+        trHtml += `<tr><td>Rifampicin (R) ${r_size} mg</td><td>${r_pills} แคปซูล<br><span class="alert-note">*(ห้ามแกะ/หักแคปซูล)</span></td><td>${freqDaily}</td><td><strong>${r_pills * freqDaily}</strong> แคปซูล</td></tr>`;
+        
+        // Pyrazinamide (มีเฉพาะในสูตร HRZE)
+        if(z > 0) {
+            trHtml += `<tr><td>Pyrazinamide (Z) 500 mg</td><td>${z_pills} เม็ด</td><td>${freqRenal}</td><td><strong>${z_pills * freqRenal}</strong> เม็ด</td></tr>`;
+        }
+        
+        // Ethambutol (มีในสูตร HRZE, HRE, 9HRE)
+        if(e > 0) {
+            trHtml += `<tr><td>Ethambutol (E) 400 mg</td><td>${e_pills} เม็ด ${(e/400 !== e_pills) ? '<br><span class="alert-note">*(ปัดขึ้น ทิ้งครึ่งเม็ด)</span>' : ''}</td><td>${freqRenal}</td><td><strong>${e_pills * freqRenal}</strong> เม็ด</td></tr>`;
+        }
+        
+        // Vitamin B6
+        trHtml += `<tr><td>Vitamin B6 50 mg</td><td>1 เม็ด</td><td>${freqDaily}</td><td><strong>${freqDaily}</strong> เม็ด</td></tr>`;
+
+        html = `<table class="pill-table">${trHtml}</table>`;
     } else {
-        html = `<p style="color:#666; padding:10px;">(ระบบคำนวณเม็ดยาอัตโนมัติรองรับเฉพาะสูตร HRZE ในขณะนี้)</p>`;
+        html = `<p style="color:#666; padding:10px;">(ระบบคำนวณเม็ดยาอัตโนมัติ รองรับเฉพาะกลุ่มสูตร First-line ในขณะนี้)</p>`;
     }
     document.getElementById("pill-calc-output").innerHTML = html;
 }
-
 
 function checkHepatotoxicity() {
     const ast = parseFloat(document.getElementById("lab-ast").value);
     const alt = parseFloat(document.getElementById("lab-alt").value);
     const alertBox = document.getElementById("liver-alert");
     
-    // สมมติ ULN = 40 U/L
+    // เกณฑ์ Stop Rule
     if(alt > 200 || ast > 200) { // > 5x ULN
         alertBox.innerHTML = "<i class='fas fa-radiation-alt'></i> <strong>ALERT: AST/ALT > 5x ULN!</strong><br>แนะนำหยุดยาวัณโรคทุกตัว (Stop Rule) และประเมินอาการทางคลินิกทันที";
         alertBox.classList.remove("hidden");
@@ -251,60 +321,49 @@ function checkHepatotoxicity() {
     }
 }
 
-// --- ระบบ Roadmap และ Gantt Chart ---
-function renderRoadmap() {
+// --- Dashboard & Timeline (แสดงทางฝั่งซ้ายของจอ) ---
+function renderDashboard() {
     if(!currentPatient) return;
     
-    const startDateStr = document.getElementById("p-start-date").value;
-    
-    // [อัปเดต] ใช้ Visit Date ในการคำนวณไทม์ไลน์
+    const startStr = document.getElementById("p-start-date").value;
     const visitDateInput = document.getElementById("visit-date");
-    const visitDateStr = visitDateInput ? visitDateInput.value : new Date().toISOString().split('T')[0];
+    const visitStr = visitDateInput ? visitDateInput.value : new Date().toISOString().split('T')[0];
     
-    const progBar = document.getElementById("gantt-progress");
-    const durTxt = document.getElementById("gantt-duration");
-    const regimen = document.getElementById("regimen-select").value;
+    const badge = document.getElementById("treatment-duration-badge");
+    const board = document.getElementById("roadmap-board");
 
-    // ตั้งเป้าหมายระยะเวลารักษา (เดือน) ตามสูตรยา
-    let targetMonths = 6; 
-    if(regimen === "1HP") targetMonths = 1;
-    if(regimen === "3HP") targetMonths = 3;
-
-    // ประมวลผล Gantt Chart (อิงจากวันที่ Visit)
-    if(startDateStr && visitDateStr) {
-        const start = new Date(startDateStr);
-        const visit = new Date(visitDateStr);
-        // คำนวณจำนวนเดือนที่ผ่านมาแล้ว
-        let diffMonths = (visit.getFullYear() - start.getFullYear()) * 12 + (visit.getMonth() - start.getMonth());
-        if(visit.getDate() < start.getDate()) diffMonths--; // ชดเชยกรณีวันที่ยังไม่ถึง
+    // 1. คำนวณระยะเวลารักษาแบบอิสระ (ไม่จำกัดแค่ 6 เดือน)
+    if(startStr && visitStr) {
+        const start = new Date(startStr);
+        const visit = new Date(visitStr);
+        const diffTime = visit - start;
         
-        let displayMonths = Math.max(0, diffMonths);
-        let percent = (displayMonths / targetMonths) * 100;
-        if(percent > 100) percent = 100;
-
-        if (durTxt) durTxt.innerText = `เดือนที่ ${displayMonths} / ${targetMonths} (วัดถึงวัน Visit)`;
-        if (progBar) progBar.style.width = percent + "%";
+        if(diffTime >= 0) {
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffMonths = Math.floor(diffDays / 30);
+            const remainDays = diffDays % 30;
+            badge.innerHTML = `<i class="fas fa-clock"></i> รักษามาแล้ว: ${diffMonths} เดือน ${remainDays} วัน (รวม ${diffDays} วัน)`;
+        } else {
+            badge.innerHTML = "ระบุวัน Visit ผิดพลาด (ต้องไม่ก่อนวันเริ่มยา)";
+        }
     } else {
-        if (durTxt) durTxt.innerText = `0 / ${targetMonths} (กรุณาระบุวันเริ่มยา)`;
-        if (progBar) progBar.style.width = "0%";
+        badge.innerHTML = "กรุณาระบุวันเริ่มยา";
     }
 
-    // วาดบอร์ดประวัติแบบการ์ด (Cards)
-    const board = document.getElementById("roadmap-board");
+    // 2. วาดบอร์ดประวัติแบบการ์ด (Cards)
     if (!board) return;
-    
     board.innerHTML = "";
     if(currentPatient.history && currentPatient.history.length > 0) {
         currentPatient.history.forEach((h, index) => {
             const dateStr = new Date(h.date).toLocaleDateString('th-TH');
-            // ไฮไลท์การ์ดล่าสุดให้อยู่ขอบสีเขียว
+            // ไฮไลท์การ์ดล่าสุด
             const borderStyle = index === 0 ? "border-left: 5px solid var(--success);" : "";
-            const badge = index === 0 ? "<span style='background:var(--success);color:white;padding:3px 8px;border-radius:12px;font-size:12px;margin-left:10px;'>ล่าสุด</span>" : "";
+            const badgeLabel = index === 0 ? "<span style='background:var(--success);color:white;padding:3px 8px;border-radius:12px;font-size:12px;margin-left:10px;'>ล่าสุด</span>" : "";
             
             board.innerHTML += `
                 <div class="visit-card" style="${borderStyle}">
                     <div class="visit-header">
-                        <span class="visit-date"><i class="fas fa-calendar-check"></i> ${dateStr} ${badge}</span>
+                        <span class="visit-date"><i class="fas fa-calendar-check"></i> ${dateStr} ${badgeLabel}</span>
                         <span style="color:#888; font-size:14px;">Visit #${currentPatient.history.length - index}</span>
                     </div>
                     <div class="visit-metrics">
@@ -317,11 +376,11 @@ function renderRoadmap() {
             `;
         });
     } else {
-        board.innerHTML = "<p style='color:#888; text-align:center;'>ยังไม่มีประวัติการจ่ายยาในระบบ</p>";
+        board.innerHTML = "<p style='color:#888; text-align:center; padding: 20px;'>ยังไม่มีประวัติการจ่ายยาในระบบ</p>";
     }
 }
 
-// --- [ปรับปรุง] ระบบบันทึกข้อมูล (คีย์ย้อนหลัง & ไม่ปิดหน้าต่าง) ---
+// --- บันทึกข้อมูล Visit (คีย์ย้อนหลังได้ & ไม่ปิดหน้าต่าง) ---
 async function saveData() {
     if(!currentPatient) return;
 
@@ -338,9 +397,10 @@ async function saveData() {
 
     // รวบรวมข้อมูลที่จะบันทึก
     const payload = {
+        action: "add_visit", // บอก Apps Script ว่าเป็นการเพิ่มประวัติ
         tbNo: currentPatient.tbNo,
-        startDate: document.getElementById("p-start-date").value, // ส่งวันเริ่มยากลับไปบันทึก
-        visitDate: vDate, // ส่งวันที่ Visit ย้อนหลัง
+        startDate: document.getElementById("p-start-date").value, 
+        visitDate: vDate, 
         weight: document.getElementById("p-weight").value,
         scr: document.getElementById("p-scr").value,
         crcl: document.getElementById("res-crcl").innerText,
@@ -349,7 +409,6 @@ async function saveData() {
     };
 
     try {
-        // ใช้ mode: 'no-cors' เพื่อบังคับส่งข้อมูลโดยไม่สนนโยบายการบล็อกของ Browser
         await fetch(APPSCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -371,10 +430,10 @@ async function saveData() {
         queue = queue.filter(q => q.tbNo !== currentPatient.tbNo);
         renderQueue();
         
-        // 3. วาด Timeline ใหม่ (แต่หน้าจอยังเปิดอยู่!)
-        renderRoadmap();
+        // 3. วาด Dashboard และ Roadmap ใหม่ (หน้าจอยังเปิดอยู่)
+        renderDashboard();
         
-        alert(`บันทึกข้อมูลเรียบร้อย! (คุณสามารถดูข้อมูล ${currentPatient.name} ต่อ หรือกด "ย้อนกลับ" เมื่อเสร็จสิ้น)`);
+        alert(`บันทึกข้อมูลเรียบร้อย! (สามารถแก้ไขข้อมูล หรือกด "ปิดหน้าต่างนี้" เมื่อเสร็จสิ้น)`);
         
     } catch (error) {
         console.error("Save Error:", error);
