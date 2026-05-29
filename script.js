@@ -1,4 +1,4 @@
-const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; 
+const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; // URL ของคุณ
 
 let queue = [];
 let currentPatient = null;
@@ -17,7 +17,8 @@ async function saveNewPatient() {
         tbNo: document.getElementById("new-tbno").value, hn: document.getElementById("new-hn").value,
         name: document.getElementById("new-name").value, age: document.getElementById("new-age").value,
         gender: document.getElementById("new-gender").value, weight: document.getElementById("new-weight").value,
-        startDate: document.getElementById("new-startdate").value, allergy: document.getElementById("new-allergy").value
+        startDate: document.getElementById("new-startdate").value, allergy: document.getElementById("new-allergy").value,
+        diag: document.getElementById("new-diag").value
     };
 
     if(!payload.tbNo || !payload.hn || !payload.name) { 
@@ -80,6 +81,7 @@ function openWorkspace(pt) {
     document.getElementById("p-tbno").innerText = pt.tbNo;
     document.getElementById("p-hn").innerText = pt.hn;
     document.getElementById("p-age").innerText = pt.age;
+    document.getElementById("p-diag").innerText = pt.diag || "TB (ไม่ระบุชนิด)";
     document.getElementById("p-allergy").innerText = pt.allergy || "ปฏิเสธการแพ้ยา";
     document.getElementById("p-weight").value = pt.weight;
     
@@ -89,11 +91,9 @@ function openWorkspace(pt) {
     } else { document.getElementById("p-start-date").value = ""; }
 
     document.getElementById("visit-date").value = new Date().toISOString().split('T')[0];
-    setDays(28); // ตั้งต้นที่ 28 วัน และคำนวณวันนัดอัตโนมัติ
+    setDays(28); 
 
-    // เคลียร์ฟอร์ม Lab
     ['lab-ast','lab-alt','lab-tbdb','lab-afb','lab-xpert','lab-lpa'].forEach(id => document.getElementById(id).value = "");
-    
     updateWeightSlider(); 
 }
 
@@ -103,7 +103,7 @@ function closeWorkspace() {
     document.getElementById("welcome-screen").style.display = "flex";
 }
 
-// --- Sync Dates (คำนวณวันนัดไป-มา) ---
+// --- Sync Dates ---
 function setDays(d) {
     document.getElementById("dispense-days").value = d;
     syncDates('days');
@@ -134,10 +134,19 @@ function syncDates(source) {
     calculate();
 }
 
-// --- Dosing & Lab Logic ---
+// --- Dosing Logic ---
 function updateWeightSlider() {
     document.getElementById("weight-val").innerText = document.getElementById("p-weight").value;
     calculate();
+}
+
+// ฟังก์ชันดึง String แนะนำช่วง Dose 
+function getDoseStr(name, baseDose, w, minF, maxF, maxD) {
+    let min = Math.round(w * minF);
+    let max = Math.round(w * maxF);
+    let isMax = baseDose >= maxD;
+    let maxHtml = isMax ? ` <span style='color:#ef4444; font-weight:bold;'>(Max dose)</span>` : '';
+    return `- ${name}: <strong>${baseDose} mg</strong> <span style='color:#6b7280; font-size:0.95em;'>(${min}-${max}mg) [${minF}-${maxF} mkd]</span>${maxHtml}<br>`;
 }
 
 function calculate() {
@@ -157,25 +166,54 @@ function calculate() {
 
     let outputHtml = ""; let inh=0, r=0, z=0, e=0;
     
-    // First-line Dose Calc
+    // First-line Dose Base
     if (w < 35) { inh=200; r=300; z=750; e=600; }
     else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
     else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
     else { inh=300; r=600; z=2000; e=1200; }
-    let hzStr = isRenal ? "<span style='color:red;'>[3 วัน/สัปดาห์]</span>" : "[ทุกวัน]";
+    
+    let hzStr = isRenal ? "<br><span style='color:#ef4444; font-weight:bold;'>*ไตเสื่อม (CrCl < 30): ปรับ Z,E เป็น 3 วัน/สัปดาห์ (M,W,F)</span>" : "";
 
     if (regimen === "HRZE") {
-        outputHtml = `<strong>สูตร: 2HRZE / 4HR</strong><br>H: ${inh}mg | R: ${r}mg | Z: ${z}mg ${hzStr} | E: ${e}mg ${hzStr}`;
-    } else if (regimen === "HRE" || regimen === "9HRE") { z = 0; outputHtml = `<strong>สูตร: ${regimen} (ห้ามใช้ Z)</strong><br>H: ${inh}mg | R: ${r}mg | E: ${e}mg ${hzStr}`; }
-    else if (regimen === "HR") { z = 0; e = 0; outputHtml = `<strong>สูตร: HR (Continuation)</strong><br>H: ${inh}mg | R: ${r}mg`; }
-    else if (regimen === "1HP") {
+        outputHtml = `<strong>สูตร: 2HRZE / 4HR (น้ำหนัก ${w} kg)</strong><br><br>` +
+                     getDoseStr("INH (H)", inh, w, 4, 6, 300) +
+                     getDoseStr("RIF (R)", r, w, 8, 12, 600) +
+                     getDoseStr("PZA (Z)", z, w, 20, 30, 2000) +
+                     getDoseStr("EMB (E)", e, w, 15, 20, 1200) + hzStr + 
+                     `<br><span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>`;
+    } else if (regimen === "HRE" || regimen === "9HRE") { 
+        z = 0; 
+        outputHtml = `<strong>สูตร: ${regimen} (กรณีตับอักเสบ/ห้ามใช้ Z)</strong><br><br>` +
+                     getDoseStr("INH (H)", inh, w, 4, 6, 300) +
+                     getDoseStr("RIF (R)", r, w, 8, 12, 600) +
+                     getDoseStr("EMB (E)", e, w, 15, 20, 1200) + hzStr +
+                     `<br><span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>`;
+    } else if (regimen === "HR") { 
+        z = 0; e = 0; 
+        outputHtml = `<strong>สูตร: HR (ระยะ Continuation Phase)</strong><br><br>` +
+                     getDoseStr("INH (H)", inh, w, 4, 6, 300) +
+                     getDoseStr("RIF (R)", r, w, 8, 12, 600) + 
+                     `<br><span style='color:#666;'>*แนะนำจ่าย Vitamin B6 (50mg) 1x1 ร่วมด้วยเสมอ</span>`;
+    } else if (regimen === "1HP") {
         let rpt = w < 35 ? 300 : (w <= 45 ? 450 : 600);
-        outputHtml = `<strong>สูตร: 1HP</strong><br>INH 300 mg/day | RPT ${rpt} mg/day`;
+        outputHtml = `<strong>สูตร: 1HP (TPT / LTBI)</strong><br><br>
+                      - INH (H): 300 mg/day <br>
+                      - Rifapentine (RPT): ${rpt} mg/day <br><br>
+                      ระยะเวลา: 1 เดือน (28 โดส)`;
     } else if (regimen === "3HP") {
         let rpt = w <= 32 ? 600 : (w < 50 ? 750 : 900);
-        outputHtml = `<strong>สูตร: 3HP</strong><br>INH 900 mg/week | RPT ${rpt} mg/week`;
+        outputHtml = `<strong>สูตร: 3HP (TPT / LTBI)</strong><br><br>
+                      - INH (H): 900 mg/week <br>
+                      - Rifapentine (RPT): ${rpt} mg/week <br><br>
+                      ระยะเวลา: 3 เดือน (12 โดส)`;
     } else if (regimen === "BPaLM") {
-        outputHtml = `<strong>สูตร: BPaLM</strong><br>Bdq 400->200mg | Pa 200mg | Lzd 600mg | Mfx 400mg`;
+        if(w < 30) {
+            outputHtml = `<strong style="color:red;">สูตร BPaLM: ไม่แนะนำสำหรับผู้ป่วยน้ำหนัก < 30 kg</strong>`;
+        } else {
+            outputHtml = `<strong>สูตร: BPaLM (MDR/RR-TB ระยะสั้น 6 เดือน)</strong><br><br>
+                          - Bdq: 400->200mg | - Pa: 200mg | - Lzd: 600mg | - Mfx: 400mg<br><br>
+                          <span style='color:red;'>*ต้องตรวจ ECG (QTc) และ CBC ติดตามสม่ำเสมอ</span>`;
+        }
     }
 
     document.getElementById("res-regimen").innerHTML = outputHtml;
@@ -185,7 +223,6 @@ function calculate() {
     renderDashboard();
 }
 
-// คำนวณเม็ดยา ครอบคลุม 1HP, 3HP, BPaLM
 function renderPillCalc(regimen, inh, r, z, e, isRenal, weight) {
     const days = parseInt(document.getElementById("dispense-days").value) || 28;
     const weeks = Math.floor(days / 7);
@@ -203,21 +240,44 @@ function renderPillCalc(regimen, inh, r, z, e, isRenal, weight) {
         if(e > 0) trHtml += `<tr><td>EMB 400mg</td><td>${e_pills} เม็ด<br><small style="color:red">${(e/400 !== e_pills)?'*ปัดขึ้น':''}</small></td><td>${freqRenal}</td><td><strong>${e_pills * freqRenal}</strong></td></tr>`;
         trHtml += `<tr><td>Vit B6 50mg</td><td>1 เม็ด</td><td>${freqDaily}</td><td><strong>${freqDaily}</strong></td></tr>`;
         html = `<table class="pill-table">${trHtml}</table>`;
-    } else if (regimen === "1HP") {
-        let rpt_pills = weight < 35 ? 2 : (weight <= 45 ? 3 : 4); // RPT เม็ดละ 150mg
+    } 
+    else if (regimen === "1HP") {
+        let rpt_pills = weight < 35 ? 2 : (weight <= 45 ? 3 : 4); 
         let warning = weight < 30 ? "<br><span class='alert-note'>*น.น.น้อย ระวัง ADR</span>" : "";
         html = `<table class="pill-table"><tr><th>ยา (1HP)</th><th>ขนาด</th><th>Doses</th><th>รวมจ่าย</th></tr>
         <tr><td>INH 100mg</td><td>3 เม็ด</td><td>${days} วัน</td><td><strong>${3 * days}</strong></td></tr>
         <tr><td>RPT 150mg</td><td>${rpt_pills} เม็ด${warning}</td><td>${days} วัน</td><td><strong>${rpt_pills * days}</strong></td></tr>
         <tr><td>Vit B6</td><td>1 เม็ด</td><td>${days} วัน</td><td><strong>${days}</strong></td></tr></table>`;
-    } else if (regimen === "3HP") {
+    } 
+    else if (regimen === "3HP") {
         let rpt_pills = weight <= 32 ? 4 : (weight < 50 ? 5 : 6);
         html = `<table class="pill-table"><tr><th>ยา (3HP)</th><th>ขนาด</th><th>Doses</th><th>รวมจ่าย</th></tr>
         <tr><td>INH 100mg</td><td>9 เม็ด</td><td>${weeks} สัปดาห์</td><td><strong>${9 * weeks}</strong></td></tr>
         <tr><td>RPT 150mg</td><td>${rpt_pills} เม็ด</td><td>${weeks} สัปดาห์</td><td><strong>${rpt_pills * weeks}</strong></td></tr>
         <tr><td>Vit B6</td><td>1 เม็ด</td><td>${weeks} สัปดาห์</td><td><strong>${weeks}</strong></td></tr></table>`;
-    } else if (regimen === "BPaLM") {
-        html = `<p style="color:#e63946; font-weight:bold; padding:10px;">*จ่ายยา BPaLM: โปรดจัดยา Bdq ตามสัปดาห์ของการรักษา (2wk แรกทานทุกวัน หลังจากนั้น จ.พ.ศ.) ส่วน Pa, Lzd, Mfx ทานทุกวัน</p>`;
+    } 
+    else if (regimen === "BPaLM") {
+        if(weight < 30) return; // ไม่คำนวณถ้า น.น. ไม่ถึง
+        
+        let bdqPills = 0;
+        let vDateObj = new Date(document.getElementById("visit-date").value);
+        let sDateObj = new Date(document.getElementById("p-start-date").value);
+        
+        for(let i=0; i<days; i++) {
+            let currDate = new Date(vDateObj.getTime() + i*86400000);
+            let dayDiff = Math.floor((currDate - sDateObj)/86400000);
+            if (dayDiff < 14) { bdqPills += 4; } // 14 วันแรก กินทุกวัน (4 เม็ด)
+            else {
+                let wd = currDate.getDay(); 
+                if(wd === 1 || wd === 3 || wd === 5) bdqPills += 2; // หลังจากนั้น จ,พ,ศ (2 เม็ด)
+            }
+        }
+        html = `<table class="pill-table"><tr><th>ยา (BPaLM)</th><th>ขนาด</th><th>Doses</th><th>รวมจ่าย</th></tr>
+        <tr><td>Bedaquiline 100mg</td><td>4เม็ด/วัน(14วันแรก)<br>2เม็ด จ.พ.ศ.(ต่อมา)</td><td>ตามสัปดาห์</td><td><strong>${bdqPills}</strong></td></tr>
+        <tr><td>Pretomanid 200mg</td><td>1 เม็ด</td><td>${days} วัน</td><td><strong>${days}</strong></td></tr>
+        <tr><td>Linezolid 600mg</td><td>1 เม็ด</td><td>${days} วัน</td><td><strong>${days}</strong></td></tr>
+        <tr><td>Moxifloxacin 400mg</td><td>1 เม็ด</td><td>${days} วัน</td><td><strong>${days}</strong></td></tr>
+        </table>`;
     }
     document.getElementById("pill-calc-output").innerHTML = html;
 }
@@ -233,7 +293,6 @@ function checkHepatotoxicity() {
     } else { box.classList.add("hidden"); }
 }
 
-// --- Smart Lab Guide ---
 function generateSmartLabRec(regimen) {
     const labBox = document.getElementById("smart-lab-box");
     const labText = document.getElementById("smart-lab-text");
@@ -269,9 +328,21 @@ function renderDashboard() {
         if(diffTime >= 0) {
             const diffDays = Math.floor(diffTime / 86400000);
             badge.innerHTML = `<i class="fas fa-clock"></i> รักษามาแล้ว: ${Math.floor(diffDays/30)} เดือน ${diffDays%30} วัน`;
+            
+            // ปรับแถบ Roadmap
+            let targetMonths = 6;
+            const reg = document.getElementById("regimen-select").value;
+            if(reg==="1HP") targetMonths=1; if(reg==="3HP") targetMonths=3;
+            
+            let pct = (diffDays / (targetMonths*30)) * 100;
+            document.getElementById("gantt-progress").style.width = Math.min(pct, 100) + "%";
         } else badge.innerHTML = "วัน Visit ผิดพลาด";
-    } else badge.innerHTML = "ระบุวันเริ่มยา";
+    } else {
+        badge.innerHTML = "ระบุวันเริ่มยา";
+        document.getElementById("gantt-progress").style.width = "0%";
+    }
 
+    // วาด Card (แก้ไขบั๊กการแสดงผลให้เรียบร้อย)
     board.innerHTML = "";
     if(currentPatient.history && currentPatient.history.length > 0) {
         currentPatient.history.forEach((h, i) => {
@@ -286,13 +357,13 @@ function renderDashboard() {
                         <span><i class="fas fa-vial"></i> CrCl: ${h.crcl}</span><br>
                         <span style="background:#fff3cd; color:#856404; width:100%;"><i class="fas fa-microscope"></i> Labs: ${h.labs || '-'}</span>
                     </div>
-                    <div class="visit-regimen">${h.regimen}</div>
+                    <div class="visit-regimen" style="white-space:pre-line;">${h.regimen}</div>
                 </div>`;
         });
     } else { board.innerHTML = "<p style='color:#888; text-align:center;'>ยังไม่มีประวัติในระบบ</p>"; }
 }
 
-// --- บันทึกข้อมูล (ไม่ล้างคิว) ---
+// --- บันทึกข้อมูล ---
 async function saveData() {
     if(!currentPatient) return;
     const btn = document.querySelector(".btn-save");
@@ -301,9 +372,13 @@ async function saveData() {
     const vDate = document.getElementById("visit-date").value;
     const daysSupplied = document.getElementById("dispense-days").value;
     const nextAppt = document.getElementById("next-appt-date").value;
-    const regimenNote = document.getElementById("res-regimen").innerText.replace(/\n/g, " ") + ` | [ให้ ${daysSupplied} วัน นัด ${nextAppt}]`;
+    
+    // บันทึกเฉพาะชื่อสูตร เพื่อป้องกันการขึ้น | ยาวเหยียดในหน้า Dashboard
+    const regSelect = document.getElementById("regimen-select");
+    const regName = regSelect.options[regSelect.selectedIndex].text;
+    const regimenNote = `สูตร: ${regName}\n[จ่ายยา ${daysSupplied} วัน | นัด ${nextAppt}]`;
 
-    // รวบรวม Lab ทุกตัวจาก Form
+    // รวบรวม Lab
     let labString = [];
     ['ast','alt','tbdb','afb','xpert','lpa'].forEach(key => {
         let val = document.getElementById(`lab-${key}`).value;
@@ -323,7 +398,6 @@ async function saveData() {
         if(!currentPatient.history) currentPatient.history = [];
         currentPatient.history.unshift({ date: vDate, weight: payload.weight, crcl: payload.crcl, regimen: payload.regimen, labs: payload.labs });
         
-        // เราจะไม่ทำ queue = queue.filter(...) แล้ว เพื่อให้คิวยังอยู่หลัง Save
         renderQueue(); renderDashboard();
         alert(`บันทึกข้อมูลเรียบร้อย! ประวัติอัปเดตลงบอร์ดซ้ายมือแล้ว`);
     } catch (err) { alert("เกิดข้อผิดพลาด"); }
