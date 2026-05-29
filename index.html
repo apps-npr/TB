@@ -11,164 +11,149 @@
     <div class="app-container">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2><i class="fas fa-lungs-virus"></i> TB Clinic คิววันนี้</h2>
+                <h2><i class="fas fa-lungs-virus"></i> TB Clinic Queue</h2>
             </div>
             <div class="queue-input">
-                <textarea id="batch-input" placeholder="วางรายการ HN จากระบบ HIS ที่นี่ (คั่นด้วย Enter หรือเว้นวรรค)"></textarea>
-                <button class="btn-primary" onclick="importBatch()"><i class="fas fa-file-import"></i> นำเข้าคิว (Batch)</button>
+                <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:15px;">
+                    <i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่
+                </button>
+                <textarea id="batch-input" placeholder="วาง HN ค้นหาหลายคน (คั่นด้วย Enter)"></textarea>
+                <button class="btn-primary" onclick="importBatch()"><i class="fas fa-file-import"></i> ดึงประวัติเข้าคิว</button>
                 <div class="divider">หรือ</div>
                 <input type="text" id="single-input" placeholder="พิมพ์ TB No. หรือ HN">
-                <button class="btn-secondary" onclick="addSingleQueue()"><i class="fas fa-search"></i> ค้นหา</button>
+                <button class="btn-secondary" onclick="addSingleQueue()"><i class="fas fa-search"></i> ค้นหาเดี่ยว</button>
             </div>
             <ul id="queue-list" class="queue-list"></ul>
         </aside>
 
         <main class="main-content">
             <div id="welcome-screen" class="welcome-screen">
-                <i class="fas fa-prescription-bottle-alt fa-4x"></i>
-                <h2>TB Pharmacist Clinical Workspace</h2>
-                <p>เลือกผู้ป่วยจากคิว เพื่อเริ่มบริบาลทางเภสัชกรรม</p>
+                <i class="fas fa-laptop-medical fa-4x"></i>
+                <h2>TB Pharmacist Dashboard</h2>
+                <p>โปรดเลือกผู้ป่วยจากคิว หรือเพิ่มผู้ป่วยใหม่ เพื่อเริ่มการบริบาล</p>
             </div>
 
             <div id="patient-workspace" class="workspace" style="display: none;">
                 
                 <div class="patient-header">
-                    <div>
+                    <div class="profile-info">
                         <h2 id="p-name">-</h2>
-                        <p class="p-meta">TB No: <span id="p-tbno"></span> | HN: <span id="p-hn"></span> | อายุ: <span id="p-age"></span> ปี</p>
+                        <p class="p-meta">
+                            <strong>TB No:</strong> <span id="p-tbno"></span> | 
+                            <strong>HN:</strong> <span id="p-hn"></span> | 
+                            <strong>อายุ:</strong> <span id="p-age"></span> ปี
+                        </p>
                     </div>
+                    <div class="treatment-summary">
+                        <div class="date-input-group">
+                            <label><i class="fas fa-flag-checkered"></i> วันเริ่มยา (Start Date):</label>
+                            <input type="date" id="p-start-date" onchange="renderDashboard()">
+                        </div>
+                        <div class="duration-badge" id="treatment-duration-badge">
+                            ระยะเวลาที่รับยา: - 
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
                     
-                    <div class="date-input-group">
-                        <label><i class="fas fa-calendar-alt"></i> วันที่เริ่มยา (Start Date):</label>
-                        <input type="date" id="p-start-date" onchange="renderRoadmap()">
-                    </div>
-
-                    <div class="roadmap-mini">
-                        <span>Phase: </span>
-                        <div class="phase-badge intensive">Intensive (M1-M2)</div>
-                        <div class="phase-badge continuation pending">Continuation (M3-M6)</div>
-                    </div>
-                </div>
-
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('tab-dosing')">สูตรยา & ขนาดยา</button>
-                    <button class="tab-btn" onclick="switchTab('tab-labs')">Lab & Micro</button>
-                    <button class="tab-btn" onclick="switchTab('tab-adr')">ADR & Rechallenge</button>
-                    <button class="tab-btn" onclick="switchTab('tab-history')">Timeline & Roadmap</button>
-                </div>
-
-                <div class="tab-content">
-                    <div id="tab-dosing" class="tab-pane active">
-                        <div class="dosing-grid">
-                            
-                            <div class="input-card">
-                                <h3>ข้อมูลน้ำหนัก & ไต</h3>
-                                <label>น้ำหนักปัจจุบัน (kg): <span id="weight-val" class="text-highlight">50</span></label>
-                                <input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()">
-                                
-                                <label>Serum Cr (mg/dL):</label>
-                                <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()">
-                                <p class="crcl-display">CrCl: <span id="res-crcl">-</span> ml/min</p>
-                            </div>
-                            
-                            <div class="regimen-card">
-                                <h3>เลือกสูตรยา (Regimen)</h3>
-                                <select id="regimen-select" onchange="calculate()">
-                                    <optgroup label="วัณโรคปอด (DS-TB)">
-                                        <option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option>
-                                        <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
-                                    </optgroup>
-                                    <optgroup label="วัณโรคระยะแฝง (TPT - LTBI)">
-                                        <option value="1HP">1HP (Daily INH + RPT 1 month)</option>
-                                        <option value="3HP">3HP (Weekly INH + RPT 3 months)</option>
-                                    </optgroup>
-                                    <optgroup label="วัณโรคดื้อยา (DR-TB)">
-                                        <option value="BPaLM">BPaLM (MDR/RR-TB ระยะสั้น 6 เดือน)</option>
-                                    </optgroup>
-                                </select>
-                                <div id="res-regimen" class="regimen-output"></div>
-                            </div>
-
-                            <div class="dispense-card">
-                                <h3><i class="fas fa-pills"></i> ข้อมูลการจ่ายยา (Dispensing & Pill Count)</h3>
-                                <div class="dispense-inputs">
-                                    <label>วันที่ Visit นี้ (คีย์ย้อนหลังได้): 
-                                        <input type="date" id="visit-date" onchange="renderRoadmap()">
-                                    </label>
-                                    <label>จำนวนวันที่นัด (พิมพ์ตัวเลขได้เลย): 
-                                        <input type="number" id="dispense-days" value="28" min="1" max="365" style="width: 80px;" oninput="calculate()"> วัน
-                                    </label>
-                                </div>
-                                <div id="pill-calc-output" class="pill-output">
-                                    </div>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div id="tab-labs" class="tab-pane">
-                        <div class="lab-grid">
-                            <div>
-                                <h3>Liver Function Test</h3>
-                                <label>AST (U/L): <input type="number" id="lab-ast" oninput="checkHepatotoxicity()"></label>
-                                <label>ALT (U/L): <input type="number" id="lab-alt" oninput="checkHepatotoxicity()"></label>
-                                <label>TB/DB: <input type="text" placeholder="เช่น 1.2/0.4"></label>
-                                <div id="liver-alert" class="alert-box hidden"></div>
-                            </div>
-                            <div>
-                                <h3>Microbiology</h3>
-                                <label>Sputum AFB:</label>
-                                <select><option>Not done</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select>
-                                <label>Xpert MTB/RIF:</label>
-                                <select><option>Not done</option><option>MTB Detected, RIF Sensitive</option><option>MTB Detected, RIF Resistant</option></select>
-                                <label>Line Probe Assay (LPA):</label>
-                                <input type="text" placeholder="ระบุผล LPA First/Second line">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-adr" class="tab-pane">
-                        <div class="rechallenge-guide">
-                            <h3><i class="fas fa-exclamation-triangle"></i> DILI & Drug Rechallenge Guide</h3>
-                            <p><strong>เกณฑ์หยุดยา (Stop Rule):</strong> ALT > 3 เท่าของค่าปกติ (ULN) <u>พร้อมมีอาการ</u> หรือ ALT > 5 เท่าของ ULN <u>โดยไม่มีอาการ</u> (อ้างอิง: แนวทางฯ พ.ศ. 2564)</p>
-                            <hr>
-                            <h4>Step การ Rechallenge (เริ่มเมื่อ ALT < 2x ULN และ Bilirubin ปกติ)</h4>
-                            <ol class="timeline-list">
-                                <li><strong>Day 1-3:</strong> เริ่ม <b>Ethambutol (E)</b> ขนาดเต็มที่ + สังเกตอาการ</li>
-                                <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่ (ระวัง transient hyperbilirubinemia)</li>
-                                <li><strong>Day 7-9:</strong> เพิ่ม <b>Isoniazid (H)</b> ขนาดเต็มที่</li>
-                                <li><strong>หมายเหตุ:</strong> มักไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้พิจารณาสูตร 9HRE แทน</li>
-                            </ol>
-                        </div>
-                    </div>
-
-                    <div id="tab-history" class="tab-pane">
-                        
+                    <div class="left-panel">
+                        <div class="panel-header"><i class="fas fa-history"></i> ประวัติการรักษา (History & Roadmap)</div>
                         <div class="gantt-wrapper">
-                            <h3><i class="fas fa-tasks"></i> Treatment Timeline (Gantt Chart)</h3>
-                            <div class="gantt-info">ระยะเวลาการรักษา: <span id="gantt-duration">0</span> เดือน</div>
-                            <div class="gantt-track">
-                                <div id="gantt-progress" class="gantt-progress"></div>
-                            </div>
-                            <div class="gantt-labels">
-                                <span>เริ่มยา</span><span>M2 (Intensive)</span><span>M4</span><span>M6 (Complete)</span>
-                            </div>
+                            <div class="gantt-info" id="gantt-info">ประเมินความคืบหน้า</div>
+                            <div class="gantt-track"><div id="gantt-progress" class="gantt-progress"></div></div>
                         </div>
-
-                        <h3 style="margin-top: 30px;"><i class="fas fa-clipboard-list"></i> Visit Roadmap Board</h3>
                         <div id="roadmap-board" class="roadmap-board">
                             </div>
-                        
                     </div>
-                </div>
 
-                <div class="actions">
-                    <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> บันทึกข้อมูล Visit</button>
-                    <button class="btn-cancel" onclick="closeWorkspace()">ย้อนกลับ</button>
+                    <div class="right-panel">
+                        <div class="panel-header"><i class="fas fa-edit"></i> บันทึก Visit ข้อมูลปัจจุบัน / ย้อนหลัง</div>
+                        
+                        <div class="entry-section">
+                            <label><strong>1. วันที่ Visit:</strong></label>
+                            <input type="date" id="visit-date" class="full-width-input" onchange="renderDashboard()">
+                        </div>
+
+                        <div class="entry-section split-2">
+                            <div>
+                                <label>น้ำหนัก (kg): <span id="weight-val" class="text-highlight">50</span></label>
+                                <input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()">
+                            </div>
+                            <div>
+                                <label>Serum Cr:</label>
+                                <input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()">
+                                <div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div>
+                            </div>
+                        </div>
+
+                        <div class="entry-section split-2">
+                            <div><label>AST (U/L):</label><input type="number" id="lab-ast" oninput="checkHepatotoxicity()"></div>
+                            <div><label>ALT (U/L):</label><input type="number" id="lab-alt" oninput="checkHepatotoxicity()"></div>
+                        </div>
+                        <div id="liver-alert" class="alert-box hidden" style="margin-bottom:15px;"></div>
+
+                        <div class="entry-section">
+                            <label><strong>2. สูตรยา (Regimen):</strong></label>
+                            <select id="regimen-select" class="full-width-input" onchange="calculate()">
+                                <optgroup label="วัณโรคปอด (DS-TB)">
+                                    <option value="HRZE">2HRZE / 4HR (มาตรฐาน 6 เดือน)</option>
+                                    <option value="HR">HR (ระยะ Continuation)</option>
+                                    <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
+                                    <option value="9HRE">9HRE (ปรับระยะเวลาตามแพทย์)</option>
+                                </optgroup>
+                                <optgroup label="วัณโรคระยะแฝง (TPT - LTBI)">
+                                    <option value="1HP">1HP (Daily 1 month)</option>
+                                    <option value="3HP">3HP (Weekly 3 months)</option>
+                                </optgroup>
+                                <optgroup label="วัณโรคดื้อยา (DR-TB)">
+                                    <option value="BPaLM">BPaLM (6 เดือน)</option>
+                                </optgroup>
+                            </select>
+                            <div id="res-regimen" class="regimen-output" style="margin-top:10px;"></div>
+                        </div>
+
+                        <div class="entry-section">
+                            <label><strong>3. จำนวนวันจ่ายยา (ระบุวันได้อิสระ):</strong></label>
+                            <input type="number" id="dispense-days" class="full-width-input" value="28" min="1" max="365" oninput="calculate()">
+                            
+                            <div id="pill-calc-output" class="pill-output" style="margin-top:10px;"></div>
+                        </div>
+
+                        <div class="actions">
+                            <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> บันทึกข้อมูล Visit</button>
+                            <button class="btn-cancel" onclick="closeWorkspace()">ปิดหน้าต่างนี้</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
+
+    <div id="newPatientModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2><i class="fas fa-user-plus"></i> เพิ่มโปรไฟล์ผู้ป่วยใหม่</h2>
+            <div class="modal-grid">
+                <label>TB Number: <input type="text" id="new-tbno" placeholder="เช่น 01/68"></label>
+                <label>HN: <input type="text" id="new-hn" placeholder="เช่น 123456"></label>
+                <label>ชื่อ-นามสกุล: <input type="text" id="new-name"></label>
+                <label>อายุ: <input type="number" id="new-age"></label>
+                <label>เพศ: 
+                    <select id="new-gender">
+                        <option value="M">ชาย (Male)</option>
+                        <option value="F">หญิง (Female)</option>
+                    </select>
+                </label>
+                <label>น้ำหนักแรกรับ (kg): <input type="number" id="new-weight"></label>
+                <label>วันที่เริ่มยา (Start Date): <input type="date" id="new-startdate"></label>
+            </div>
+            <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;">
+                <i class="fas fa-save"></i> สร้างโปรไฟล์
+            </button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
