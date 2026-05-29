@@ -1,4 +1,4 @@
-const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; // URL ของคุณ
+const APPSCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBiiRMfeFJixkuesIyyEptEN5K806lUeYvB4l5IK2x6x_cXUPsidsW5hZF0zTzUcQI/exec"; 
 
 let queue = [];
 let currentPatient = null;
@@ -140,7 +140,6 @@ function updateWeightSlider() {
     calculate();
 }
 
-// ฟังก์ชันดึง String แนะนำช่วง Dose 
 function getDoseStr(name, baseDose, w, minF, maxF, maxD) {
     let min = Math.round(w * minF);
     let max = Math.round(w * maxF);
@@ -166,7 +165,6 @@ function calculate() {
 
     let outputHtml = ""; let inh=0, r=0, z=0, e=0;
     
-    // First-line Dose Base
     if (w < 35) { inh=200; r=300; z=750; e=600; }
     else if (w <= 49) { inh=300; r=450; z=1000; e=800; }
     else if (w <= 69) { inh=300; r=600; z=1500; e=1000; }
@@ -197,21 +195,24 @@ function calculate() {
     } else if (regimen === "1HP") {
         let rpt = w < 35 ? 300 : (w <= 45 ? 450 : 600);
         outputHtml = `<strong>สูตร: 1HP (TPT / LTBI)</strong><br><br>
-                      - INH (H): 300 mg/day <br>
-                      - Rifapentine (RPT): ${rpt} mg/day <br><br>
+                      - INH (H): <strong>300 mg/day</strong> <br>
+                      - Rifapentine (RPT): <strong>${rpt} mg/day</strong> <br><br>
                       ระยะเวลา: 1 เดือน (28 โดส)`;
     } else if (regimen === "3HP") {
         let rpt = w <= 32 ? 600 : (w < 50 ? 750 : 900);
         outputHtml = `<strong>สูตร: 3HP (TPT / LTBI)</strong><br><br>
-                      - INH (H): 900 mg/week <br>
-                      - Rifapentine (RPT): ${rpt} mg/week <br><br>
+                      - INH (H): <strong>900 mg/week</strong> <br>
+                      - Rifapentine (RPT): <strong>${rpt} mg/week</strong> <br><br>
                       ระยะเวลา: 3 เดือน (12 โดส)`;
     } else if (regimen === "BPaLM") {
         if(w < 30) {
             outputHtml = `<strong style="color:red;">สูตร BPaLM: ไม่แนะนำสำหรับผู้ป่วยน้ำหนัก < 30 kg</strong>`;
         } else {
             outputHtml = `<strong>สูตร: BPaLM (MDR/RR-TB ระยะสั้น 6 เดือน)</strong><br><br>
-                          - Bdq: 400->200mg | - Pa: 200mg | - Lzd: 600mg | - Mfx: 400mg<br><br>
+                          - Bdq: <strong>400->200 mg</strong><br>
+                          - Pa: <strong>200 mg</strong><br>
+                          - Lzd: <strong>600 mg</strong><br>
+                          - Mfx: <strong>400 mg</strong><br><br>
                           <span style='color:red;'>*ต้องตรวจ ECG (QTc) และ CBC ติดตามสม่ำเสมอ</span>`;
         }
     }
@@ -315,7 +316,7 @@ function generateSmartLabRec(regimen) {
     } else { labBox.classList.add("hidden"); }
 }
 
-// --- Dashboard ---
+// --- Dashboard (แสดงประวัติ และ สรุป Roadmap) ---
 function renderDashboard() {
     if(!currentPatient) return;
     const startStr = document.getElementById("p-start-date").value;
@@ -323,26 +324,63 @@ function renderDashboard() {
     const badge = document.getElementById("treatment-duration-badge");
     const board = document.getElementById("roadmap-board");
 
+    // 1. ดึงสูตรยาล่าสุดจากประวัติ หรือถ้าไม่มีให้ใช้สูตรที่เลือกจาก Dropdown
+    let latestRegimen = "TB (ยังไม่มีการประเมิน)";
+    if (currentPatient.history && currentPatient.history.length > 0) {
+        // ดึงเฉพาะชื่อสูตรบรรทัดแรก โดยตัดคำว่า "สูตร: " ออก
+        latestRegimen = currentPatient.history[0].regimen.split('\n')[0].replace("สูตร: ", "").trim();
+    } else {
+        const regSelect = document.getElementById("regimen-select");
+        latestRegimen = regSelect.options[regSelect.selectedIndex].text;
+    }
+
+    // 2. หาจำนวนเดือนเป้าหมายตามสูตรยา
+    let targetMonths = 6; // ค่าตั้งต้นสำหรับสูตรมาตรฐาน
+    if(latestRegimen.includes("1HP")) targetMonths = 1;
+    else if(latestRegimen.includes("3HP")) targetMonths = 3;
+    else if(latestRegimen.includes("9HRE")) targetMonths = 9;
+    // BPaLM และ HRZE/HR มีระยะเวลา 6 เดือน
+
+    // 3. ประมวลผลเวลา
     if(startStr && visitStr) {
         const diffTime = new Date(visitStr) - new Date(startStr);
         if(diffTime >= 0) {
             const diffDays = Math.floor(diffTime / 86400000);
-            badge.innerHTML = `<i class="fas fa-clock"></i> รักษามาแล้ว: ${Math.floor(diffDays/30)} เดือน ${diffDays%30} วัน`;
+            const diffMonthsPassed = Math.floor(diffDays / 30);
+            const remainDaysPassed = diffDays % 30;
             
-            // ปรับแถบ Roadmap
-            let targetMonths = 6;
-            const reg = document.getElementById("regimen-select").value;
-            if(reg==="1HP") targetMonths=1; if(reg==="3HP") targetMonths=3;
+            const targetDays = targetMonths * 30;
+            const remainTotalDays = targetDays - diffDays;
             
-            let pct = (diffDays / (targetMonths*30)) * 100;
+            let remainText = remainTotalDays > 0 
+                ? `(เหลืออีก ${Math.floor(remainTotalDays/30)} เดือน ${remainTotalDays%30} วัน)` 
+                : `<span style="color:#10b981; margin-left: 5px;">(ครบกำหนดรักษาแล้ว)</span>`;
+
+            badge.innerHTML = `<i class="fas fa-clock"></i> รักษามาแล้ว: ${diffMonthsPassed} เดือน ${remainDaysPassed} วัน ${remainText}`;
+            
+            // อัปเดตแถบ Progress
+            let pct = (diffDays / targetDays) * 100;
             document.getElementById("gantt-progress").style.width = Math.min(pct, 100) + "%";
-        } else badge.innerHTML = "วัน Visit ผิดพลาด";
+            
+            // อัปเดตข้อความแสดงข้อมูลด้านบนแถบ Roadmap
+            document.getElementById("gantt-info").innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span><strong>สูตรปัจจุบัน:</strong> <span style="color:var(--primary); font-size:1.1em; font-weight:bold;">${latestRegimen}</span></span>
+                    <span><strong>เป้าหมายระยะเวลา:</strong> ${targetMonths} เดือน</span>
+                </div>
+            `;
+        } else {
+            badge.innerHTML = "วัน Visit ผิดพลาด (ต้องไม่ก่อนวันเริ่มยา)";
+            document.getElementById("gantt-progress").style.width = "0%";
+            document.getElementById("gantt-info").innerHTML = `<strong>สูตรปัจจุบัน:</strong> ${latestRegimen}`;
+        }
     } else {
         badge.innerHTML = "ระบุวันเริ่มยา";
         document.getElementById("gantt-progress").style.width = "0%";
+        document.getElementById("gantt-info").innerHTML = `<strong>สูตรปัจจุบัน:</strong> ${latestRegimen}`;
     }
 
-    // วาด Card (แก้ไขบั๊กการแสดงผลให้เรียบร้อย)
+    // วาด Card ประวัติ
     board.innerHTML = "";
     if(currentPatient.history && currentPatient.history.length > 0) {
         currentPatient.history.forEach((h, i) => {
@@ -373,7 +411,7 @@ async function saveData() {
     const daysSupplied = document.getElementById("dispense-days").value;
     const nextAppt = document.getElementById("next-appt-date").value;
     
-    // บันทึกเฉพาะชื่อสูตร เพื่อป้องกันการขึ้น | ยาวเหยียดในหน้า Dashboard
+    // บันทึกเฉพาะชื่อสูตร
     const regSelect = document.getElementById("regimen-select");
     const regName = regSelect.options[regSelect.selectedIndex].text;
     const regimenNote = `สูตร: ${regName}\n[จ่ายยา ${daysSupplied} วัน | นัด ${nextAppt}]`;
@@ -399,7 +437,7 @@ async function saveData() {
         currentPatient.history.unshift({ date: vDate, weight: payload.weight, crcl: payload.crcl, regimen: payload.regimen, labs: payload.labs });
         
         renderQueue(); renderDashboard();
-        alert(`บันทึกข้อมูลเรียบร้อย! ประวัติอัปเดตลงบอร์ดซ้ายมือแล้ว`);
+        alert(`บันทึกข้อมูลเรียบร้อย! ประวัติอัปเดตลงบอร์ดแล้ว`);
     } catch (err) { alert("เกิดข้อผิดพลาด"); }
     finally { btn.innerHTML = "<i class='fas fa-save'></i> บันทึกข้อมูล Visit"; btn.disabled = false; }
 }
