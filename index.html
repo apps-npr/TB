@@ -23,7 +23,6 @@
                     <i class="fas fa-book-medical"></i> คู่มือ & Rechallenge
                 </button>
                 
-                <!-- ปุ่มสร้างรายงานตัวใหม่ (Phase 6) -->
                 <button class="btn-info" onclick="openReportModal()" style="margin-bottom:15px; background:#8b5cf6; color:white;">
                     <i class="fas fa-chart-pie"></i> รายงานตัวชี้วัด (KPI)
                 </button>
@@ -132,7 +131,7 @@
                         <div class="entry-section split-2" style="background:#fdfbf7; border: 1px dashed #d4c78a;">
                             <div style="grid-column: span 2;">
                                 <label><strong>สถานะการรักษา:</strong></label>
-                                <select id="p-status" class="full-width-input" style="border-color:#d4c78a;">
+                                <select id="p-status" class="full-width-input" style="border-color:#d4c78a;" onchange="calculate();">
                                     <option value="Active (กำลังรักษา)">Active (กำลังรักษา)</option>
                                     <option value="Cured (รักษาหาย)">Cured (รักษาหาย)</option>
                                     <option value="Treatment Completed (รักษาครบ)">Treatment Completed (รักษาครบ)</option>
@@ -142,30 +141,30 @@
                             </div>
                             <div>
                                 <small>โรคร่วม (Comorbidity):</small>
-                                <input type="text" id="p-comorb" class="full-width-input" placeholder="เช่น DM, HT" oninput="checkInteractions()">
+                                <input type="text" id="p-comorb" class="full-width-input" placeholder="เช่น DM, HT" oninput="calculate();">
                             </div>
                             <div>
                                 <small>ยาที่ใช้ร่วม (ARV/Meds):</small>
-                                <input type="text" id="p-arv" class="full-width-input" placeholder="เช่น TEE, DTG, Statin" oninput="checkInteractions()">
+                                <input type="text" id="p-arv" class="full-width-input" placeholder="เช่น TEE, DTG, Statin" oninput="calculate();">
                             </div>
                         </div>
 
                         <div class="entry-section">
                             <label><strong>1. วันที่ Visit:</strong></label>
-                            <input type="date" id="visit-date" class="full-width-input" onchange="syncDates('visit'); renderDashboard(); calculate();">
+                            <input type="date" id="visit-date" class="full-width-input" onchange="syncDates('visit');">
                         </div>
 
                         <div class="entry-section split-2">
                             <div>
                                 <label>น้ำหนัก (kg):</label>
                                 <div style="display: flex; gap:10px; align-items: center; margin-top:5px;">
-                                    <input type="number" id="p-weight-num" class="full-width-input" style="width:80px; margin:0;" min="10" max="150" value="50" oninput="syncWeight('num')">
-                                    <input type="range" id="p-weight" min="10" max="150" value="50" style="flex:1; margin:0;" oninput="syncWeight('slider')">
+                                    <input type="number" id="p-weight-num" class="full-width-input" style="width:80px; margin:0;" min="10" max="150" value="50" oninput="syncWeight('num');">
+                                    <input type="range" id="p-weight" min="10" max="150" value="50" style="flex:1; margin:0;" oninput="syncWeight('slider');">
                                 </div>
                             </div>
                             <div>
                                 <label>Serum Cr:</label>
-                                <input type="number" id="p-scr" class="full-width-input" step="0.01" value="1.0" oninput="calculate()">
+                                <input type="number" id="p-scr" class="full-width-input" step="0.01" value="1.0" oninput="calculate();">
                                 <div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div>
                             </div>
                         </div>
@@ -173,8 +172,8 @@
                         <div class="entry-section">
                             <label><strong>ผล Lab เพิ่มเติม (Microbiology, LFT & ECG):</strong></label>
                             <div class="lab-inputs-grid">
-                                <div><small>AST (U/L):</small><input type="number" id="lab-ast" class="full-width-input" oninput="checkClinicalAlerts()"></div>
-                                <div><small>ALT (U/L):</small><input type="number" id="lab-alt" class="full-width-input" oninput="checkClinicalAlerts()"></div>
+                                <div><small>AST (U/L):</small><input type="number" id="lab-ast" class="full-width-input" oninput="calculate();"></div>
+                                <div><small>ALT (U/L):</small><input type="number" id="lab-alt" class="full-width-input" oninput="calculate();"></div>
                                 <div><small>TB / DB:</small><input type="text" id="lab-tbdb" class="full-width-input" placeholder="เช่น 1.2/0.4"></div>
                                 <div>
                                     <small>Sputum AFB:</small>
@@ -195,16 +194,16 @@
                                     </select>
                                 </div>
                                 <div><small>LPA:</small><input type="text" id="lab-lpa" class="full-width-input" placeholder="ผล LPA"></div>
-                                <div><small>QTcF (ms):</small><input type="number" id="lab-qtcf" class="full-width-input" placeholder="ECG" oninput="checkClinicalAlerts()"></div>
+                                <div><small>QTcF (ms):</small><input type="number" id="lab-qtcf" class="full-width-input" placeholder="ECG" oninput="calculate();"></div>
                             </div>
                             
                             <div class="checkbox-group">
                                 <label class="checkbox-item danger">
-                                    <input type="checkbox" id="lab-symp" onchange="checkClinicalAlerts()">
+                                    <input type="checkbox" id="lab-symp" onchange="calculate();">
                                     มีอาการคลื่นไส้ อาเจียน ตัวเหลือง ตาเหลือง (Symptomatic Hepatitis)
                                 </label>
                                 <label class="checkbox-item warning">
-                                    <input type="checkbox" id="lab-neuro" onchange="checkClinicalAlerts()">
+                                    <input type="checkbox" id="lab-neuro" onchange="calculate();">
                                     มีอาการชาปลายมือ/เท้า หรือ การมองเห็นผิดปกติ (Neuropathy)
                                 </label>
                             </div>
@@ -214,12 +213,11 @@
 
                         <div class="entry-section">
                             <label><strong>2. สูตรยา (Regimen):</strong></label>
-                            <select id="regimen-select" class="full-width-input" onchange="calculate()">
+                            <select id="regimen-select" class="full-width-input" onchange="calculate();">
                                 <optgroup label="วัณโรคปอด (DS-TB)">
-                                    <option value="HRZE">2HRZE / 4HR (มาตรฐาน)</option>
-                                    <option value="HRE">HRE (กรณีตับอักเสบ/ห้ามใช้ Z)</option>
-                                    <option value="HR">HR (ระยะ Continuation)</option>
-                                    <option value="9HRE">9HRE (ปรับระยะเวลาตามแพทย์)</option>
+                                    <option value="HRZE">ระยะแรก 2HRZE (Intensive Phase)</option>
+                                    <option value="HR">ระยะต่อเนื่อง 4HR (Continuation Phase)</option>
+                                    <option value="HRE">สูตร HRE (ปรับกรณีแพ้/ตับอักเสบจาก Z)</option>
                                 </optgroup>
                                 <optgroup label="วัณโรคระยะแฝง (TPT)">
                                     <option value="1HP">1HP (Daily 1 month)</option>
@@ -245,14 +243,13 @@
                             </div>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top:15px;">
-                                <div><small>เป้าหมายวันนัด (Days):</small><input type="number" id="dispense-days" class="full-width-input" value="28" min="1" oninput="syncDates('days')"></div>
-                                <div><small>หักยาเก่าเหลือ (Days):</small><input type="number" id="remain-days" class="full-width-input" value="0" min="0" oninput="calculate()"></div>
-                                <div><small>วันนัดครั้งถัดไป:</small><input type="date" id="next-appt-date" class="full-width-input" onchange="syncDates('appt')"></div>
+                                <div><small>เป้าหมายวันนัด (Days):</small><input type="number" id="dispense-days" class="full-width-input" value="28" min="1" oninput="syncDates('days');"></div>
+                                <div><small>หักยาเก่าเหลือ (Days):</small><input type="number" id="remain-days" class="full-width-input" value="0" min="0" oninput="calculate();"></div>
+                                <div><small>วันนัดครั้งถัดไป:</small><input type="date" id="next-appt-date" class="full-width-input" onchange="syncDates('appt');"></div>
                             </div>
                             <div id="pill-calc-output" class="pill-output"></div>
                         </div>
 
-                        <!-- 6. ประเมินคุณภาพการรักษา (Quality/Safety) - Phase 6 -->
                         <div class="entry-section" style="background:#eff6ff; border: 1px solid #bfdbfe;">
                             <label style="color:#1e3a8a;"><strong><i class="fas fa-shield-alt"></i> คุณภาพและความปลอดภัย (Quality & Safety):</strong></label>
                             
@@ -297,7 +294,6 @@
         </main>
     </div>
 
-    <!-- Modal เพิ่มผู้ป่วยใหม่ -->
     <div id="newPatientModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('newPatientModal')">&times;</span>
@@ -333,7 +329,6 @@
         </div>
     </div>
 
-    <!-- Modal สรุปการจ่ายยา (Print / Copy) -->
     <div id="summaryModal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close" onclick="closeModal('summaryModal')">&times;</span>
@@ -345,7 +340,6 @@
         </div>
     </div>
 
-    <!-- Modal รายงานประจำเดือน (Monthly KPI Report) -->
     <div id="reportModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close" onclick="closeModal('reportModal')">&times;</span>
@@ -371,8 +365,7 @@
                         <tr><th style="font-size:14px; text-transform:none;">ตัวชี้วัด (KPIs)</th><th style="text-align:center; width:120px; font-size:14px;">ผลลัพธ์</th></tr>
                     </thead>
                     <tbody id="report-table-body">
-                        <!-- Data will be injected here -->
-                    </tbody>
+                        </tbody>
                 </table>
                 <button class="btn-success" onclick="copyReportText()" style="width:100%; padding:10px;"><i class="fas fa-copy"></i> คัดลอกข้อความรายงาน</button>
                 <textarea id="hidden-report-text" style="display:none;"></textarea>
@@ -384,7 +377,6 @@
         </div>
     </div>
 
-    <!-- Modal คู่มือ & Rechallenge -->
     <div id="knowledgeModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close" onclick="closeModal('knowledgeModal')">&times;</span>
