@@ -19,8 +19,13 @@
                 <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:10px;">
                     <i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่
                 </button>
-                <button class="btn-info" onclick="openKnowledgeModal()" style="margin-bottom:15px; background:#0ea5e9; color:white;">
+                <button class="btn-info" onclick="openKnowledgeModal()" style="margin-bottom:10px; background:#0ea5e9; color:white;">
                     <i class="fas fa-book-medical"></i> คู่มือ & Rechallenge
+                </button>
+                
+                <!-- ปุ่มสร้างรายงานตัวใหม่ (Phase 6) -->
+                <button class="btn-info" onclick="openReportModal()" style="margin-bottom:15px; background:#8b5cf6; color:white;">
+                    <i class="fas fa-chart-pie"></i> รายงานตัวชี้วัด (KPI)
                 </button>
                 
                 <textarea id="batch-input" placeholder="วาง HN ค้นหาหลายคน (คั่นด้วย Enter)"></textarea>
@@ -119,6 +124,7 @@
                         <div class="panel-header"><i class="fas fa-edit"></i> บันทึก Visit & จ่ายยา</div>
                         
                         <div id="interaction-alert" class="alert-box hidden" style="margin-bottom:15px; border-left-color:#8b5cf6; background:#eff6ff; color:#1e3a8a;"></div>
+                        
                         <div id="smart-lab-box" class="smart-lab-box hidden">
                             <strong><i class="fas fa-lightbulb"></i> แนะนำ Lab สำหรับ Visit นี้:</strong> <span id="smart-lab-text"></span>
                         </div>
@@ -246,6 +252,30 @@
                             <div id="pill-calc-output" class="pill-output"></div>
                         </div>
 
+                        <!-- 6. ประเมินคุณภาพการรักษา (Quality/Safety) - Phase 6 -->
+                        <div class="entry-section" style="background:#eff6ff; border: 1px solid #bfdbfe;">
+                            <label style="color:#1e3a8a;"><strong><i class="fas fa-shield-alt"></i> คุณภาพและความปลอดภัย (Quality & Safety):</strong></label>
+                            
+                            <div style="margin-top:10px;">
+                                <small style="font-weight:bold; color:#1e40af;">ความร่วมมือในการรักษา (Adherence):</small>
+                                <select id="p-adherence" class="full-width-input" style="margin-top:5px; border-color:#93c5fd;">
+                                    <option value="สม่ำเสมอ (มาตามนัด)">สม่ำเสมอ (มาตามนัด / ขาดยา < 10%)</option>
+                                    <option value="ไม่สม่ำเสมอ (ผิดนัด)">ไม่สม่ำเสมอ (ผิดนัด / ขาดยา ≥ 10%)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="split-2" style="margin-top:15px;">
+                                <div>
+                                    <small style="font-weight:bold; color:#1e40af;">ปัญหาจากการใช้ยา (DRP):</small>
+                                    <input type="text" id="p-drp" class="full-width-input" placeholder="ถ้ามีโปรดระบุ (เช่น Dosage too high)" style="margin-top:5px; border-color:#93c5fd;">
+                                </div>
+                                <div>
+                                    <small style="font-weight:bold; color:#1e40af;">Medication Error:</small>
+                                    <input type="text" id="p-mederror" class="full-width-input" placeholder="ถ้ามีโปรดระบุ (เช่น จ่ายยาผิด)" style="margin-top:5px; border-color:#93c5fd;">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="actions">
                             <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> บันทึกข้อมูล Visit</button>
                             <button class="btn-info" onclick="generateSummary()"><i class="fas fa-print"></i> ใบสรุป (Print)</button>
@@ -267,6 +297,7 @@
         </main>
     </div>
 
+    <!-- Modal เพิ่มผู้ป่วยใหม่ -->
     <div id="newPatientModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('newPatientModal')">&times;</span>
@@ -302,6 +333,7 @@
         </div>
     </div>
 
+    <!-- Modal สรุปการจ่ายยา (Print / Copy) -->
     <div id="summaryModal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close" onclick="closeModal('summaryModal')">&times;</span>
@@ -313,6 +345,46 @@
         </div>
     </div>
 
+    <!-- Modal รายงานประจำเดือน (Monthly KPI Report) -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close" onclick="closeModal('reportModal')">&times;</span>
+            <h2><i class="fas fa-chart-pie"></i> รายงานตัวชี้วัดคลินิกวัณโรค (KPI)</h2>
+            
+            <div style="background:#f3f4f6; padding:15px; border-radius:8px; display:flex; gap:15px; align-items:flex-end; margin-bottom:15px;">
+                <div style="flex:1;">
+                    <label style="font-size:13px; font-weight:bold;">วันที่เริ่มต้น:</label>
+                    <input type="date" id="report-start" class="full-width-input" style="margin-top:5px;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:13px; font-weight:bold;">วันที่สิ้นสุด:</label>
+                    <input type="date" id="report-end" class="full-width-input" style="margin-top:5px;">
+                </div>
+                <button class="btn-primary" onclick="generateMonthlyReport()" style="width:auto; padding:10px 20px;">
+                    <i class="fas fa-sync"></i> ประมวลผล
+                </button>
+            </div>
+
+            <div id="report-output-container" style="display:none;">
+                <table class="pill-table" style="width:100%; margin-bottom:15px;">
+                    <thead>
+                        <tr><th style="font-size:14px; text-transform:none;">ตัวชี้วัด (KPIs)</th><th style="text-align:center; width:120px; font-size:14px;">ผลลัพธ์</th></tr>
+                    </thead>
+                    <tbody id="report-table-body">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                </table>
+                <button class="btn-success" onclick="copyReportText()" style="width:100%; padding:10px;"><i class="fas fa-copy"></i> คัดลอกข้อความรายงาน</button>
+                <textarea id="hidden-report-text" style="display:none;"></textarea>
+            </div>
+            
+            <div id="report-loading" class="hidden" style="text-align:center; padding:20px; color:var(--primary);">
+                <i class="fas fa-spinner fa-spin fa-2x"></i><p>กำลังดึงข้อมูลจากระบบ...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal คู่มือ & Rechallenge -->
     <div id="knowledgeModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close" onclick="closeModal('knowledgeModal')">&times;</span>
@@ -325,15 +397,9 @@
                 <p><i>เริ่มเมื่ออาการตับอักเสบหาย และ ALT < 2x ULN</i></p>
                 <ul>
                     <li><strong>Day 1-3:</strong> เริ่ม <b>Ethambutol (E)</b> ขนาดเต็มที่ สังเกตอาการ</li>
-                    <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่ (อาจมี transient hyperbilirubinemia)</li>
+                    <li><strong>Day 4-6:</strong> เพิ่ม <b>Rifampicin (R)</b> ขนาดเต็มที่</li>
                     <li><strong>Day 7-9:</strong> เพิ่ม <b>Isoniazid (H)</b> ขนาดเต็มที่</li>
-                    <li><i>*ไม่แนะนำให้เริ่ม Pyrazinamide (Z) ซ้ำ หากตับอักเสบรุนแรง ให้เปลี่ยนเป็น HRE หรือ 9HRE แทน</i></li>
                 </ul>
-                <hr>
-                <h4 style="color:var(--primary);"><i class="fas fa-info-circle"></i> ข้อมูลเพิ่มเติม</h4>
-                <p><b>LTBI (วัณโรคระยะแฝง):</b> ไม่แพร่เชื้อ ไม่มีอาการ แต่มีความเสี่ยงพัฒนาเป็นวัณโรคกำเริบ <br>
-                <b>1HP:</b> เหมาะสำหรับผู้ที่มีน้ำหนักตัวเพียงพอ และไม่มีข้อห้ามการใช้ Rifapentine<br>
-                <b>BPaLM:</b> สำหรับผู้ป่วย MDR/RR-TB ระยะเวลา 6 เดือน ต้องประเมิน QTc interval เสมอ</p>
             </div>
         </div>
     </div>
