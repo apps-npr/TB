@@ -8,24 +8,78 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
+    <div id="network-badge" class="network-badge online"><i class="fas fa-wifi"></i> Online</div>
+
     <div class="app-container">
         <aside class="sidebar">
-            <div class="sidebar-header"><h2><i class="fas fa-lungs-virus"></i> TB Clinic Queue</h2></div>
-            <div class="queue-input">
-                <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:10px;"><i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่</button>
-                <button class="btn-info" onclick="openKnowledgeModal()" style="margin-bottom:15px; background:#0ea5e9; color:white;"><i class="fas fa-book-medical"></i> คู่มือ & Rechallenge</button>
-                <textarea id="batch-input" placeholder="วาง HN ค้นหาหลายคน (คั่นด้วย Enter)"></textarea>
-                <button class="btn-primary" onclick="importBatch()"><i class="fas fa-file-import"></i> ดึงประวัติเข้าคิว</button>
-                <div class="divider">หรือ</div>
-                <input type="text" id="single-input" placeholder="พิมพ์ TB No. หรือ HN">
-                <button class="btn-secondary" onclick="addSingleQueue()"><i class="fas fa-search"></i> ค้นหาเดี่ยว</button>
+            <div class="sidebar-header">
+                <h2><i class="fas fa-lungs-virus"></i> TB Clinic Queue</h2>
             </div>
+            <div class="queue-input">
+                <button class="btn-success" onclick="openNewPatientModal()" style="margin-bottom:10px;">
+                    <i class="fas fa-user-plus"></i> เพิ่มผู้ป่วยใหม่
+                </button>
+                <button class="btn-info" onclick="openKnowledgeModal()" style="margin-bottom:15px; background:#0ea5e9; color:white;">
+                    <i class="fas fa-book-medical"></i> คู่มือ & Rechallenge
+                </button>
+                
+                <textarea id="batch-input" placeholder="วาง HN ค้นหาหลายคน (คั่นด้วย Enter)"></textarea>
+                <button class="btn-primary" onclick="importBatch()">
+                    <i class="fas fa-file-import"></i> ดึงประวัติเข้าคิว
+                </button>
+                
+                <div class="divider">หรือ</div>
+                
+                <input type="text" id="single-input" placeholder="พิมพ์ TB No. หรือ HN">
+                <button class="btn-secondary" onclick="addSingleQueue()">
+                    <i class="fas fa-search"></i> ค้นหาเดี่ยว
+                </button>
+            </div>
+            
             <ul id="queue-list" class="queue-list"></ul>
         </aside>
 
         <main class="main-content">
             <div id="welcome-screen" class="welcome-screen">
-                <i class="fas fa-laptop-medical fa-4x"></i><h2>TB Pharmacist Dashboard</h2><p>โปรดเลือกผู้ป่วยจากคิว หรือเพิ่มผู้ป่วยใหม่</p>
+                <i class="fas fa-laptop-medical fa-4x" style="color: var(--primary);"></i>
+                <h2 style="color: var(--secondary); margin-top: 15px;">TB Pharmacist Dashboard</h2>
+                <p>โปรดเลือกผู้ป่วยจากคิวซ้ายมือ หรือกดเพิ่มผู้ป่วยใหม่</p>
+                
+                <div class="overview-wrapper" id="clinic-overview" style="display: none;">
+                    <h3 style="color: var(--secondary); border-bottom: 2px solid var(--accent); padding-bottom: 5px;">
+                        <i class="fas fa-chart-line"></i> ภาพรวมคลินิกวันนี้
+                    </h3>
+                    <div class="overview-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i class="fas fa-user-check"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-number" id="stat-active">0</span>
+                                <span class="stat-label">ผู้ป่วยกำลังรักษา (Active)</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon red"><i class="fas fa-biohazard"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-number" id="stat-mdr">0</span>
+                                <span class="stat-label">ผู้ป่วยดื้อยา (MDR/RR-TB)</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange"><i class="fas fa-exclamation-circle"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-number" id="stat-ltfu">0</span>
+                                <span class="stat-label">ขาดการติดต่อ (LTFU)</span>
+                            </div>
+                        </div>
+                         <div class="stat-card">
+                            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-number" id="stat-cured">0</span>
+                                <span class="stat-label">รักษาหาย/ครบ (Cured)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="patient-workspace" class="workspace" style="display: none;">
@@ -38,8 +92,12 @@
                             <strong>HN:</strong> <span id="p-hn"></span> | 
                             <strong>อายุ:</strong> <span id="p-age"></span> ปี
                         </p>
-                        <p class="p-meta" style="margin-top:5px; color:#005b96;"><strong><i class="fas fa-stethoscope"></i> Diagnosis:</strong> <span id="p-diag">-</span></p>
-                        <p class="p-meta" style="margin-top:5px; color:#ef4444;"><strong><i class="fas fa-allergies"></i> ประวัติแพ้ยา:</strong> <span id="p-allergy">-</span></p>
+                        <p class="p-meta" style="margin-top:5px; color:#005b96;">
+                            <strong><i class="fas fa-stethoscope"></i> Diagnosis:</strong> <span id="p-diag">-</span>
+                        </p>
+                        <p class="p-meta" style="margin-top:5px; color:#ef4444;">
+                            <strong><i class="fas fa-allergies"></i> ประวัติแพ้ยา:</strong> <span id="p-allergy">-</span>
+                        </p>
                     </div>
                     <div class="treatment-summary">
                         <div class="date-input-group">
@@ -50,13 +108,40 @@
                     </div>
                 </div>
 
+                <div id="phase-transition-alert" class="phase-alert hidden">
+                    <i class="fas fa-sync-alt"></i>
+                    <span><strong>แจ้งเตือน:</strong> ผู้ป่วยรักษาครบระยะ Intensive Phase แล้ว (2 เดือน) โปรดพิจารณาประเมินผลเสมหะและเปลี่ยนสูตรยาเป็นระยะ Continuation Phase (เช่น HR)</span>
+                </div>
+
                 <div class="dashboard-grid">
                     
                     <div class="entry-panel">
                         <div class="panel-header"><i class="fas fa-edit"></i> บันทึก Visit & จ่ายยา</div>
                         
+                        <div id="interaction-alert" class="alert-box hidden" style="margin-bottom:15px; border-left-color:#8b5cf6; background:#eff6ff; color:#1e3a8a;"></div>
                         <div id="smart-lab-box" class="smart-lab-box hidden">
                             <strong><i class="fas fa-lightbulb"></i> แนะนำ Lab สำหรับ Visit นี้:</strong> <span id="smart-lab-text"></span>
+                        </div>
+
+                        <div class="entry-section split-2" style="background:#fdfbf7; border: 1px dashed #d4c78a;">
+                            <div style="grid-column: span 2;">
+                                <label><strong>สถานะการรักษา:</strong></label>
+                                <select id="p-status" class="full-width-input" style="border-color:#d4c78a;">
+                                    <option value="Active (กำลังรักษา)">Active (กำลังรักษา)</option>
+                                    <option value="Cured (รักษาหาย)">Cured (รักษาหาย)</option>
+                                    <option value="Treatment Completed (รักษาครบ)">Treatment Completed (รักษาครบ)</option>
+                                    <option value="Lost to follow-up (ขาดยา)">Lost to follow-up (ขาดยา)</option>
+                                    <option value="Died (เสียชีวิต)">Died (เสียชีวิต)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <small>โรคร่วม (Comorbidity):</small>
+                                <input type="text" id="p-comorb" class="full-width-input" placeholder="เช่น DM, HT" oninput="checkInteractions()">
+                            </div>
+                            <div>
+                                <small>ยาที่ใช้ร่วม (ARV/Meds):</small>
+                                <input type="text" id="p-arv" class="full-width-input" placeholder="เช่น TEE, DTG, Statin" oninput="checkInteractions()">
+                            </div>
                         </div>
 
                         <div class="entry-section">
@@ -65,21 +150,60 @@
                         </div>
 
                         <div class="entry-section split-2">
-                            <div><label>น้ำหนัก (kg): <span id="weight-val" class="text-highlight">50</span></label><input type="range" id="p-weight" min="20" max="100" value="50" oninput="updateWeightSlider()"></div>
-                            <div><label>Serum Cr:</label><input type="number" id="p-scr" step="0.01" value="1.0" oninput="calculate()"><div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div></div>
+                            <div>
+                                <label>น้ำหนัก (kg):</label>
+                                <div style="display: flex; gap:10px; align-items: center; margin-top:5px;">
+                                    <input type="number" id="p-weight-num" class="full-width-input" style="width:80px; margin:0;" min="10" max="150" value="50" oninput="syncWeight('num')">
+                                    <input type="range" id="p-weight" min="10" max="150" value="50" style="flex:1; margin:0;" oninput="syncWeight('slider')">
+                                </div>
+                            </div>
+                            <div>
+                                <label>Serum Cr:</label>
+                                <input type="number" id="p-scr" class="full-width-input" step="0.01" value="1.0" oninput="calculate()">
+                                <div style="margin-top:5px; font-weight:bold;">CrCl: <span id="res-crcl">-</span></div>
+                            </div>
                         </div>
 
                         <div class="entry-section">
-                            <label><strong>ผล Lab เพิ่มเติม (Microbiology & LFT):</strong></label>
+                            <label><strong>ผล Lab เพิ่มเติม (Microbiology, LFT & ECG):</strong></label>
                             <div class="lab-inputs-grid">
-                                <div><small>AST (U/L):</small><input type="number" id="lab-ast" class="full-width-input" oninput="checkHepatotoxicity()"></div>
-                                <div><small>ALT (U/L):</small><input type="number" id="lab-alt" class="full-width-input" oninput="checkHepatotoxicity()"></div>
+                                <div><small>AST (U/L):</small><input type="number" id="lab-ast" class="full-width-input" oninput="checkClinicalAlerts()"></div>
+                                <div><small>ALT (U/L):</small><input type="number" id="lab-alt" class="full-width-input" oninput="checkClinicalAlerts()"></div>
                                 <div><small>TB / DB:</small><input type="text" id="lab-tbdb" class="full-width-input" placeholder="เช่น 1.2/0.4"></div>
-                                <div><small>Sputum AFB:</small><select id="lab-afb" class="full-width-input"><option value="">- เลือก -</option><option>Negative</option><option>1+</option><option>2+</option><option>3+</option></select></div>
-                                <div><small>Xpert MTB/RIF:</small><select id="lab-xpert" class="full-width-input"><option value="">- เลือก -</option><option>MTB Detected, RIF Sus</option><option>MTB Detected, RIF Res</option></select></div>
+                                <div>
+                                    <small>Sputum AFB:</small>
+                                    <select id="lab-afb" class="full-width-input">
+                                        <option value="">- เลือก -</option>
+                                        <option>Negative</option>
+                                        <option>1+</option>
+                                        <option>2+</option>
+                                        <option>3+</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <small>Xpert MTB/RIF:</small>
+                                    <select id="lab-xpert" class="full-width-input">
+                                        <option value="">- เลือก -</option>
+                                        <option>MTB Detected, RIF Sus</option>
+                                        <option>MTB Detected, RIF Res</option>
+                                    </select>
+                                </div>
                                 <div><small>LPA:</small><input type="text" id="lab-lpa" class="full-width-input" placeholder="ผล LPA"></div>
+                                <div><small>QTcF (ms):</small><input type="number" id="lab-qtcf" class="full-width-input" placeholder="ECG" oninput="checkClinicalAlerts()"></div>
                             </div>
-                            <div id="liver-alert" class="alert-box hidden" style="margin-top:10px;"></div>
+                            
+                            <div class="checkbox-group">
+                                <label class="checkbox-item danger">
+                                    <input type="checkbox" id="lab-symp" onchange="checkClinicalAlerts()">
+                                    มีอาการคลื่นไส้ อาเจียน ตัวเหลือง ตาเหลือง (Symptomatic Hepatitis)
+                                </label>
+                                <label class="checkbox-item warning">
+                                    <input type="checkbox" id="lab-neuro" onchange="checkClinicalAlerts()">
+                                    มีอาการชาปลายมือ/เท้า หรือ การมองเห็นผิดปกติ (Neuropathy)
+                                </label>
+                            </div>
+                            
+                            <div id="clinical-alert" class="alert-box hidden" style="margin-top:10px;"></div>
                         </div>
 
                         <div class="entry-section">
@@ -103,7 +227,7 @@
                         </div>
 
                         <div class="entry-section">
-                            <label><strong>3. จำนวนวันจ่ายยา / วันนัด:</strong></label>
+                            <label><strong>3. การนัดหมาย & นับยา (Reconciliation):</strong></label>
                             <div class="quick-days">
                                 <button class="quick-btn" onclick="setDays(14)">14</button>
                                 <button class="quick-btn" onclick="setDays(28)">28</button>
@@ -113,8 +237,10 @@
                                 <button class="quick-btn" onclick="setDays(140)">140</button>
                                 <button class="quick-btn" onclick="setDays(168)">168</button>
                             </div>
-                            <div class="split-2" style="margin-top:10px;">
-                                <div><small>จำนวนวัน (Days):</small><input type="number" id="dispense-days" class="full-width-input" value="28" min="1" oninput="syncDates('days')"></div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top:15px;">
+                                <div><small>เป้าหมายวันนัด (Days):</small><input type="number" id="dispense-days" class="full-width-input" value="28" min="1" oninput="syncDates('days')"></div>
+                                <div><small>หักยาเก่าเหลือ (Days):</small><input type="number" id="remain-days" class="full-width-input" value="0" min="0" oninput="calculate()"></div>
                                 <div><small>วันนัดครั้งถัดไป:</small><input type="date" id="next-appt-date" class="full-width-input" onchange="syncDates('appt')"></div>
                             </div>
                             <div id="pill-calc-output" class="pill-output"></div>
@@ -122,7 +248,8 @@
 
                         <div class="actions">
                             <button class="btn-save" onclick="saveData()"><i class="fas fa-save"></i> บันทึกข้อมูล Visit</button>
-                            <button class="btn-cancel" onclick="closeWorkspace()">ปิดหน้าต่างนี้</button>
+                            <button class="btn-info" onclick="generateSummary()"><i class="fas fa-print"></i> ใบสรุป (Print)</button>
+                            <button class="btn-cancel" onclick="closeWorkspace()">ปิดหน้าต่าง</button>
                         </div>
                     </div>
 
@@ -149,7 +276,12 @@
                 <label>HN: <input type="text" id="new-hn"></label>
                 <label>ชื่อ-นามสกุล: <input type="text" id="new-name"></label>
                 <label>อายุ: <input type="number" id="new-age"></label>
-                <label>เพศ: <select id="new-gender"><option value="M">ชาย</option><option value="F">หญิง</option></select></label>
+                <label>เพศ: 
+                    <select id="new-gender">
+                        <option value="M">ชาย</option>
+                        <option value="F">หญิง</option>
+                    </select>
+                </label>
                 <label>น้ำหนักแรกรับ (kg): <input type="number" id="new-weight"></label>
                 <label>วันที่เริ่มยา: <input type="date" id="new-startdate"></label>
                 <label>Diagnosis: 
@@ -160,9 +292,24 @@
                         <option value="MDR/RR-TB (ดื้อยา)">MDR/RR-TB</option>
                     </select>
                 </label>
+                <label>โรคร่วม (Comorbidity): <input type="text" id="new-comorb" placeholder="เช่น DM, HT"></label>
+                <label>ยาที่ใช้ร่วม (ARV/Meds): <input type="text" id="new-arv" placeholder="เช่น TEE, DTG"></label>
                 <label style="grid-column: span 2;">ประวัติแพ้ยา (Allergy): <input type="text" id="new-allergy" placeholder="ถ้าไม่มีให้เว้นว่าง หรือขีด - "></label>
             </div>
-            <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;"><i class="fas fa-save"></i> สร้างโปรไฟล์</button>
+            <button class="btn-success" onclick="saveNewPatient()" style="width:100%; margin-top:15px; padding:12px;">
+                <i class="fas fa-save"></i> สร้างโปรไฟล์
+            </button>
+        </div>
+    </div>
+
+    <div id="summaryModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="closeModal('summaryModal')">&times;</span>
+            <h2><i class="fas fa-clipboard-check"></i> สรุปการจ่ายยา (Dispensing Summary)</h2>
+            <textarea id="summary-text" style="width:100%; height:250px; padding:10px; font-family:monospace; font-size:14px; border:1px solid #ccc; border-radius:6px; margin-bottom:15px; resize:none;" readonly></textarea>
+            <button class="btn-success" onclick="copySummaryText()" style="width:100%; padding:12px;">
+                <i class="fas fa-copy"></i> คัดลอกข้อความ (Copy to Clipboard)
+            </button>
         </div>
     </div>
 
