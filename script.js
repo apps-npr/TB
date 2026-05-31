@@ -25,6 +25,10 @@ function updateNetworkStatus() {
 // --- Modals ---
 function openNewPatientModal() { document.getElementById("newPatientModal").style.display = "block"; }
 function openKnowledgeModal() { document.getElementById("knowledgeModal").style.display = "block"; }
+function openReportModal() { 
+    document.getElementById("reportModal").style.display = "block"; 
+    document.getElementById("report-output-container").style.display = "none";
+}
 function closeModal(id) { document.getElementById(id).style.display = "none"; }
 
 // --- จัดการผู้ป่วยใหม่ ---
@@ -170,10 +174,12 @@ function openWorkspace(pt) {
     setDays(28); 
     document.getElementById("remain-days").value = 0; 
 
-    // เคลียร์ผล Lab และ Checkbox เก่า
-    ['lab-ast','lab-alt','lab-tbdb','lab-afb','lab-xpert','lab-lpa','lab-qtcf'].forEach(id => {
+    // เคลียร์ผล Lab และ Quality & Safety เก่า
+    ['lab-ast','lab-alt','lab-tbdb','lab-afb','lab-xpert','lab-lpa','lab-qtcf', 'p-drp', 'p-mederror'].forEach(id => {
         if(document.getElementById(id)) document.getElementById(id).value = "";
     });
+    
+    if(document.getElementById("p-adherence")) document.getElementById("p-adherence").value = "สม่ำเสมอ (มาตามนัด)";
     document.getElementById("lab-symp").checked = false;
     document.getElementById("lab-neuro").checked = false;
     document.getElementById("clinical-alert").classList.add("hidden");
@@ -545,6 +551,21 @@ function renderDashboard() {
     if(currentPatient.history && currentPatient.history.length > 0) {
         currentPatient.history.forEach((h, i) => {
             const border = i === 0 ? "border-left: 5px solid var(--success);" : "";
+            
+            // Phase 6: สร้าง Badges แสดงผล Adherence, DRP, MedError
+            let badgesHtml = "";
+            if(h.adherence === "สม่ำเสมอ (มาตามนัด)") {
+                badgesHtml += `<span class="badge-adhere"><i class="fas fa-check"></i> Adherence ดี</span>`;
+            } else if(h.adherence === "ไม่สม่ำเสมอ (ผิดนัด)") {
+                badgesHtml += `<span class="badge-nonadhere"><i class="fas fa-times"></i> ผิดนัด/ขาดยา</span>`;
+            }
+            if(h.drp && h.drp.trim() !== "") {
+                badgesHtml += `<span class="badge-drp"><i class="fas fa-exclamation-triangle"></i> DRP: ${h.drp}</span>`;
+            }
+            if(h.medError && h.medError.trim() !== "") {
+                badgesHtml += `<span class="badge-drp" style="background:#fefce8; color:#a16207; border-color:#fde047;"><i class="fas fa-pills"></i> Med Error: ${h.medError}</span>`;
+            }
+
             board.innerHTML += `
                 <div class="visit-card" style="${border}">
                     <div class="visit-header">
@@ -555,10 +576,13 @@ function renderDashboard() {
                         <span><i class="fas fa-vial"></i> CrCl: ${h.crcl}</span><br>
                         <span style="background:#fff3cd; color:#856404; width:100%;"><i class="fas fa-microscope"></i> Labs: ${h.labs || '-'}</span>
                     </div>
+                    <div style="margin-top:8px; line-height:1.5;">${badgesHtml}</div>
                     <div class="visit-regimen" style="white-space:pre-line;">${h.regimen}</div>
                 </div>`;
         });
-    } else { board.innerHTML = "<p style='color:#888; text-align:center;'>ยังไม่มีประวัติในระบบ</p>"; }
+    } else { 
+        board.innerHTML = "<p style='color:#888; text-align:center;'>ยังไม่มีประวัติในระบบ</p>"; 
+    }
 }
 
 // --- บันทึก & สรุปข้อมูล ---
@@ -591,18 +615,40 @@ async function saveData() {
     if(document.getElementById("lab-neuro").checked) labString.push("NEURO: Yes");
 
     const payload = {
-        action: "add_visit", tbNo: currentPatient.tbNo,
-        startDate: document.getElementById("p-start-date").value, visitDate: vDate, 
-        weight: document.getElementById("p-weight-num").value, scr: document.getElementById("p-scr").value, crcl: document.getElementById("res-crcl").innerText,
-        regimen: regimenNote, labs: labString.join(" | ") || "-",
-        comorbidity: document.getElementById("p-comorb").value, arv: document.getElementById("p-arv").value, status: document.getElementById("p-status").value
+        action: "add_visit", 
+        tbNo: currentPatient.tbNo,
+        startDate: document.getElementById("p-start-date").value, 
+        visitDate: vDate, 
+        weight: document.getElementById("p-weight-num").value, 
+        scr: document.getElementById("p-scr").value, 
+        crcl: document.getElementById("res-crcl").innerText,
+        regimen: regimenNote, 
+        labs: labString.join(" | ") || "-",
+        comorbidity: document.getElementById("p-comorb").value, 
+        arv: document.getElementById("p-arv").value, 
+        status: document.getElementById("p-status").value,
+        
+        // ข้อมูลตัวชี้วัด (Phase 6)
+        drp: (document.getElementById("p-drp") ? document.getElementById("p-drp").value : ""),
+        medError: (document.getElementById("p-mederror") ? document.getElementById("p-mederror").value : ""),
+        adherence: (document.getElementById("p-adherence") ? document.getElementById("p-adherence").value : "สม่ำเสมอ (มาตามนัด)")
     };
 
     try {
         await fetch(APPSCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         
         if(!currentPatient.history) currentPatient.history = [];
-        currentPatient.history.unshift({ date: vDate, weight: payload.weight, crcl: payload.crcl, regimen: payload.regimen, labs: payload.labs });
+        // แทรกประวัติใหม่เข้าไปบนสุด
+        currentPatient.history.unshift({ 
+            date: vDate, 
+            weight: payload.weight, 
+            crcl: payload.crcl, 
+            regimen: payload.regimen, 
+            labs: payload.labs,
+            drp: payload.drp,
+            medError: payload.medError,
+            adherence: payload.adherence
+        });
         
         currentPatient.comorbidity = payload.comorbidity;
         currentPatient.arv = payload.arv;
@@ -647,6 +693,11 @@ function generateSummary() {
     if(document.getElementById("lab-symp").checked) labString.push("Symptomatic Hepatitis: Yes");
     if(document.getElementById("lab-neuro").checked) labString.push("Neuropathy: Yes");
 
+    let qualityStr = "";
+    if(document.getElementById("p-adherence")) qualityStr += `ความร่วมมือ (Adherence): ${document.getElementById("p-adherence").value}\n`;
+    if(document.getElementById("p-drp") && document.getElementById("p-drp").value) qualityStr += `DRP: ${document.getElementById("p-drp").value}\n`;
+    if(document.getElementById("p-mederror") && document.getElementById("p-mederror").value) qualityStr += `Med Error: ${document.getElementById("p-mederror").value}\n`;
+
     const summaryStr = `========== TB DISPENSING SUMMARY ==========\n` +
         `วันที่: ${vDate}\n` +
         `ชื่อ: ${currentPatient.name} (HN: ${currentPatient.hn})\n` +
@@ -662,6 +713,8 @@ function generateSummary() {
         `รวมเบิกจ่ายจริง: ${actDays} วัน\n` +
         `วันนัดครั้งถัดไป: ${nextAppt}\n` +
         `ผลแล็บและอาการ: ${labString.join(" | ") || 'ไม่มีข้อมูล'}\n` +
+        `-------------------------------------------\n` +
+        `${qualityStr}` +
         `===========================================`;
 
     document.getElementById("summary-text").value = summaryStr;
@@ -676,5 +729,134 @@ function copySummaryText() {
         alert("คัดลอกข้อความเรียบร้อยแล้ว! สามารถนำไปวางใน HIS หรือ Google Sheet ได้เลย");
     }).catch(err => {
         alert("เกิดข้อผิดพลาดในการคัดลอก");
+    });
+}
+
+// ==========================================
+// Phase 6: Monthly KPI Report Generation
+// ==========================================
+async function generateMonthlyReport() {
+    const sDateStr = document.getElementById("report-start").value;
+    const eDateStr = document.getElementById("report-end").value;
+    
+    if(!sDateStr || !eDateStr) { alert("กรุณาเลือกวันที่เริ่มต้นและสิ้นสุด"); return; }
+    
+    const startRange = new Date(sDateStr).getTime();
+    const endRange = new Date(eDateStr);
+    endRange.setHours(23, 59, 59, 999); 
+    const endRangeTime = endRange.getTime();
+
+    document.getElementById("report-loading").classList.remove("hidden");
+    document.getElementById("report-output-container").style.display = "none";
+
+    try {
+        const response = await fetch(`${APPSCRIPT_URL}?getAll=true`);
+        const data = await response.json();
+        
+        if(data.status !== "success") throw new Error("Fetch failed");
+
+        const allPatients = data.patients || [];
+        const allVisits = data.visits || [];
+
+        let totalPatientsSet = new Set();
+        let drpCount = 0;
+        let medErrorCount = 0;
+        let goodAdhereCount = 0;
+        let totalVisitsInRange = 0;
+        let week3to8Count = 0;
+        
+        // 1. ประมวลผลประวัติ Visit 
+        allVisits.forEach(v => {
+            const vTime = new Date(v.date).getTime();
+            if(vTime >= startRange && vTime <= endRangeTime) {
+                totalVisitsInRange++;
+                totalPatientsSet.add(v.tbNo);
+                
+                if(v.drp && v.drp.trim() !== "") drpCount++;
+                if(v.medError && v.medError.trim() !== "") medErrorCount++;
+                if(v.adherence && v.adherence.includes("สม่ำเสมอ")) goodAdhereCount++;
+
+                // หาจำนวนผู้ป่วยรับยาสัปดาห์ที่ 3-8 (Day 15 to 60)
+                const pt = allPatients.find(p => p.tbNo === v.tbNo);
+                if(pt && pt.startDate) {
+                    const sTime = new Date(pt.startDate).getTime();
+                    const diffDays = Math.floor((vTime - sTime) / (1000 * 60 * 60 * 24));
+                    if(diffDays >= 14 && diffDays <= 60) {
+                        week3to8Count++;
+                    }
+                }
+            }
+        });
+
+        // 2. หาจำนวนผู้ป่วยใหม่ (New Patients) ในเดือนนั้น
+        let newPatientsCount = 0;
+        allPatients.forEach(pt => {
+            if(pt.startDate) {
+                const sTime = new Date(pt.startDate).getTime();
+                if(sTime >= startRange && sTime <= endRangeTime) {
+                    newPatientsCount++;
+                }
+            }
+        });
+
+        // 3. หาอัตราความสำเร็จการรักษา (Success Rate) ของทั้งคลินิก
+        let totalEvaluated = 0;
+        let successCount = 0;
+        allPatients.forEach(pt => {
+            const st = pt.status || "";
+            if(st.includes("Cured") || st.includes("Completed") || st.includes("Lost") || st.includes("Died")) {
+                totalEvaluated++;
+                if(st.includes("Cured") || st.includes("Completed")) successCount++;
+            }
+        });
+
+        const adhereRate = totalVisitsInRange > 0 ? ((goodAdhereCount / totalVisitsInRange) * 100).toFixed(1) : 0;
+        const drpRate = totalVisitsInRange > 0 ? ((drpCount / totalVisitsInRange) * 100).toFixed(1) : 0;
+        const successRate = totalEvaluated > 0 ? ((successCount / totalEvaluated) * 100).toFixed(1) : 0;
+
+        // วาดตารางรายงาน
+        const tbody = document.getElementById("report-table-body");
+        tbody.innerHTML = `
+            <tr><td>- จำนวนผู้ป่วย (ราย)</td><td style="text-align:center; color:var(--primary);"><strong>${totalPatientsSet.size}</strong></td></tr>
+            <tr><td>- จำนวน DRP ที่พบและแก้ปัญหา (ครั้ง)</td><td style="text-align:center;"><strong>${drpCount}</strong> <small>(${drpRate}%)</small></td></tr>
+            <tr><td>- จำนวน Medication error ที่พบ (ครั้ง)</td><td style="text-align:center; color:var(--danger);"><strong>${medErrorCount}</strong></td></tr>
+            <tr><td>- จำนวนผู้ป่วยใหม่ (ราย)</td><td style="text-align:center;"><strong>${newPatientsCount}</strong></td></tr>
+            <tr><td>- จำนวนผู้ป่วยที่รับยาสัปดาห์ที่ 3-8 (ครั้ง)</td><td style="text-align:center;"><strong>${week3to8Count}</strong></td></tr>
+            <tr><td>- ร้อยละของความร่วมมือในการมารับการรักษา (%)</td><td style="text-align:center; color:var(--success);"><strong>${adhereRate}%</strong></td></tr>
+            <tr><td>- อัตราความสำเร็จของการรักษาวัณโรค (Success Rate)</td><td style="text-align:center; color:var(--success);"><strong>${successRate}%</strong> <small>(${successCount}/${totalEvaluated})</small></td></tr>
+        `;
+
+        // สร้างข้อความเพื่อคัดลอก (Copy text)
+        document.getElementById("hidden-report-text").value = 
+            `สรุปตัวชี้วัดคลินิกวัณโรค (วันที่ ${new Date(sDateStr).toLocaleDateString('th-TH')} - ${new Date(eDateStr).toLocaleDateString('th-TH')})\n` +
+            `- จำนวนผู้ป่วย: ${totalPatientsSet.size} ราย\n` +
+            `- จำนวน DRP ที่พบและแก้ปัญหา: ${drpCount} ครั้ง (${drpRate}%)\n` +
+            `- จำนวน Medication error ที่พบ: ${medErrorCount} ครั้ง\n` +
+            `- จำนวนผู้ป่วยใหม่: ${newPatientsCount} ราย\n` +
+            `- จำนวนผู้ป่วยที่รับยาสัปดาห์ที่ 3-8: ${week3to8Count} ครั้ง\n` +
+            `- ร้อยละความร่วมมือในการรับยา (Adherence): ${adhereRate}%\n` +
+            `- อัตราความสำเร็จของการรักษา (Success Rate): ${successRate}% (${successCount}/${totalEvaluated} ราย)`;
+
+        document.getElementById("report-loading").classList.add("hidden");
+        document.getElementById("report-output-container").style.display = "block";
+
+    } catch(err) {
+        document.getElementById("report-loading").classList.add("hidden");
+        alert("เกิดข้อผิดพลาดในการดึงข้อมูลรายงาน กรุณาตรวจสอบอินเทอร์เน็ต");
+        console.error(err);
+    }
+}
+
+function copyReportText() {
+    const copyText = document.getElementById("hidden-report-text");
+    copyText.style.display = "block";
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value).then(() => {
+        alert("คัดลอกข้อความรายงานเรียบร้อยแล้ว! นำไปวางใน Word หรือ Excel ได้เลย");
+        copyText.style.display = "none";
+    }).catch(err => {
+        alert("เกิดข้อผิดพลาดในการคัดลอก");
+        copyText.style.display = "none";
     });
 }
